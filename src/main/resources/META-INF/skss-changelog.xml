@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.1.xsd">
+    <changeSet author="suvera" id="skss-1.0">
+
+        <createTable tableName="SKSS_SP">
+            <column name="ID" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="NAME" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="REALM_ID" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="END_POINT" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="USERNAME" type="VARCHAR(128)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="PASSWORD" type="VARCHAR(128)">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey
+                constraintName="PK_SKSS_SP"
+                tableName="SKSS_SP"
+                columnNames="ID"
+        />
+
+    </changeSet>
+
+    <changeSet author="suvera" id="SKSS_SP_UX01">
+        <addUniqueConstraint
+                columnNames="REALM_ID, END_POINT"
+                constraintName="SKSS_SP_UX01"
+                tableName="SKSS_SP"
+        />
+    </changeSet>
+
+</databaseChangeLog>
