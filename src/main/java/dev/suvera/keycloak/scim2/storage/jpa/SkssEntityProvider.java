@@ -2,7 +2,7 @@ package dev.suvera.keycloak.scim2.storage.jpa;
 
 import org.keycloak.connections.jpa.entityprovider.JpaEntityProvider;
 
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -12,7 +12,7 @@ import java.util.List;
 public class SkssEntityProvider implements JpaEntityProvider {
 
     public List<Class<?>> getEntities() {
-        return Collections.<Class<?>>singletonList(SkssSp.class);
+        return Arrays.asList(SkssSp.class, SkssJobQueue.class);
     }
 
     public String getChangelogLocation() {

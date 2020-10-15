@@ -41,4 +41,41 @@
         />
     </changeSet>
 
+    <changeSet author="suvera" id="table-job-queue">
+
+        <createTable tableName="SKSS_JOB_QUEUE">
+            <column name="ID" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="USERNAME" type="VARCHAR(128)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="ACTION" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="REALM_ID" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="COMPONENT_ID" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="PROCESSED" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="CREATED_ON" type="DATETIME">
+                <constraints nullable="false"/>
+            </column>
+            <column name="EXTERNAL_ID" type="VARCHAR(128)">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey
+                constraintName="PK_SKSS_JOB_QUEUE"
+                tableName="SKSS_JOB_QUEUE"
+                columnNames="ID"
+        />
+
+    </changeSet>
+
 </databaseChangeLog>
