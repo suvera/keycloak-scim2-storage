@@ -9,9 +9,7 @@ import com.unboundid.scim2.common.types.*;
 import org.jboss.logging.Logger;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.models.GroupModel;
-import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RoleModel;
-import org.keycloak.models.UserModel;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
@@ -51,9 +49,7 @@ public class Scim2Client {
         String username = componentModel.get("username");
         String password = componentModel.get("password");
 
-        log.info("SCIM 2.0 endPoint: " + endPoint
-                + ", username: " + username
-                + ", password: " + password);
+        log.info("SCIM 2.0 endPoint: " + endPoint);
 
         SSLContext sslcontext;
         try {
@@ -82,12 +78,13 @@ public class Scim2Client {
                     if (username == null || username.isEmpty()) {
                         return;
                     }
+
+                    log.info("SCIM 2.0 username: ****** , password: ******");
                     String token = username + ":" + password;
                     token = "Basic " + DatatypeConverter.printBase64Binary(token.getBytes(StandardCharsets.UTF_8));
 
                     MultivaluedMap<String, Object> headers = requestContext.getHeaders();
                     headers.add("Authorization", token);
-                    log.info("XXXX  Authorization: " + token);
                 }).build();
 
 
@@ -101,7 +98,7 @@ public class Scim2Client {
         }
 
         try {
-            this.spConfig = scimService.getServiceProviderConfig();
+            spConfig = scimService.getServiceProviderConfig();
             ListResponse<ResourceTypeResource> resourceTypes = scimService.getResourceTypes();
 
             for (ResourceTypeResource resource : resourceTypes.getResources()) {
@@ -121,7 +118,7 @@ public class Scim2Client {
         }
     }
 
-    private void buildScimUser(SkssUserModel userModel, UserResource user) {
+    private void buildScimUser(SkssUserModel userModel, SkssUserResource user) {
         user.setUserName(userModel.getUsername());
         //user.setPassword();
 
@@ -153,6 +150,12 @@ public class Scim2Client {
 
         List<Group> groups = new ArrayList<>();
         for (GroupModel groupModel : userModel.getGroups()) {
+            try {
+                createGroup(groupModel);
+            } catch (ScimException e) {
+                log.error("", e);
+            }
+
             Group grp = new Group();
             grp.setDisplay(groupModel.getName());
             grp.setValue(groupModel.getId());
@@ -253,34 +256,35 @@ public class Scim2Client {
         if (scimService == null) {
             return;
         }
-        if (userModel.getFirstAttribute("skss_id_" + componentModel.getId()) != null) {
+        if (userModel.getExternalUserId(componentModel.getId()) != null) {
             log.info("User already exist in the SCIM2 provider " + userModel.getUsername());
             return;
         }
 
-        UserResource user = new UserResource();
+        SkssUserResource user = new SkssUserResource();
         buildScimUser(userModel, user);
 
         user = scimService.create(userResource.getEndpoint().getPath(), user);
 
-        userModel.setSingleAttribute(
-                "skss_id_" + componentModel.getId(),
+        userModel.saveExternalUserId(
+                componentModel.getId(),
                 user.getId()
         );
+        log.info("User record successfully sync'd to SKIM service provider. " + user.getId());
     }
 
     public void updateUser(SkssUserModel userModel) throws ScimException {
         if (scimService == null) {
             return;
         }
-        String id = userModel.getFirstAttribute("skss_id_" + componentModel.getId());
+        String id = userModel.getExternalUserId(componentModel.getId());
 
         if (id == null) {
             log.info("User user does not exist in the SCIM2 provider " + userModel.getUsername());
             return;
         }
 
-        UserResource user = getUser(userModel);
+        SkssUserResource user = getUser(userModel);
         if (user == null) {
             return;
         }
@@ -289,29 +293,28 @@ public class Scim2Client {
 
         user = scimService.replace(user);
 
-        userModel.setSingleAttribute(
-                "skss_id_" + componentModel.getId(),
+        userModel.saveExternalUserId(
+                componentModel.getId(),
                 user.getId()
         );
     }
 
-    public UserResource getUser(SkssUserModel userModel) throws ScimException {
-        String id = userModel.getFirstAttribute("skss_id_" + componentModel.getId());
+    public SkssUserResource getUser(SkssUserModel userModel) throws ScimException {
+        String id = userModel.getExternalUserId(componentModel.getId());
 
         if (id == null) {
             log.info("User user does not exist in the SCIM2 provider " + userModel.getUsername());
             return null;
         }
 
-        return scimService.retrieve(userResource.getEndpoint().getPath(), id, UserResource.class);
+        return scimService.retrieve(userResource.getEndpoint().getPath(), id, SkssUserResource.class);
     }
 
-    public void deleteUser(UserModel userModel) throws ScimException {
+    public void deleteUser(String skssId) throws ScimException {
         if (scimService == null) {
             return;
         }
-        String id = userModel.getFirstAttribute("skss_id_" + componentModel.getId());
-        scimService.delete(userResource.getEndpoint().getPath(), id);
+        scimService.delete(userResource.getEndpoint().getPath(), skssId);
     }
 
     public void createGroup(GroupModel groupModel) throws ScimException {
@@ -346,7 +349,7 @@ public class Scim2Client {
             return;
         }
 
-        UserResource grp = scimService.retrieve(groupResource.getEndpoint().getPath(), id, UserResource.class);
+        GroupResource grp = scimService.retrieve(groupResource.getEndpoint().getPath(), id, GroupResource.class);
 
         grp = scimService.replace(grp);
         grp.setDisplayName(groupModel.getName());

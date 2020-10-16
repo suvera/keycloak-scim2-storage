@@ -2,17 +2,21 @@ package dev.suvera.keycloak.scim2.storage.storage;
 
 import com.unboundid.scim2.common.exceptions.ScimException;
 import com.unboundid.scim2.common.types.UserResource;
+import dev.suvera.keycloak.scim2.storage.jpa.SkssJobQueue;
 import org.jboss.logging.Logger;
 import org.keycloak.component.ComponentModel;
+import org.keycloak.connections.jpa.JpaConnectionProvider;
 import org.keycloak.credential.CredentialInput;
 import org.keycloak.credential.CredentialInputUpdater;
 import org.keycloak.credential.CredentialModel;
 import org.keycloak.models.*;
+import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.storage.ReadOnlyException;
 import org.keycloak.storage.UserStorageProvider;
 import org.keycloak.storage.user.UserLookupProvider;
 import org.keycloak.storage.user.UserRegistrationProvider;
 
+import javax.persistence.EntityManager;
 import java.util.Collections;
 import java.util.Set;
 
@@ -23,21 +27,23 @@ import java.util.Set;
 public class SkssStorageProvider implements UserStorageProvider,
         UserRegistrationProvider,
         CredentialInputUpdater,
-        UserLookupProvider
-{
+        UserLookupProvider {
     private static final Logger log = Logger.getLogger(SkssStorageProvider.class);
     private final KeycloakSession keycloakSession;
     private final ComponentModel componentModel;
-    private final Scim2Client scimClient;
+    private final EntityManager em;
+    private Scim2Client scimClient;
 
     public SkssStorageProvider(KeycloakSession keycloakSession, ComponentModel componentModel) {
         this.keycloakSession = keycloakSession;
         this.componentModel = componentModel;
-        scimClient = new Scim2Client(componentModel);
+        em = keycloakSession.getProvider(JpaConnectionProvider.class).getEntityManager();
+
         try {
-            scimClient.validate();
+            scimClient = Scim2ClientFactory.getClient(componentModel);
         } catch (ScimException e) {
             log.error("", e);
+            scimClient = null;
         }
     }
 
@@ -58,8 +64,11 @@ public class SkssStorageProvider implements UserStorageProvider,
      */
     @Override
     public void preRemove(RealmModel realm, GroupModel group) {
+        if (scimClient == null) {
+            return;
+        }
         try {
-            scimClient.createGroup(group);
+            scimClient.deleteGroup(group);
         } catch (ScimException e) {
             log.error("", e);
         }
@@ -78,15 +87,20 @@ public class SkssStorageProvider implements UserStorageProvider,
      */
     @Override
     public UserModel addUser(RealmModel realmModel, String username) {
-        SkssUserModel model = createAdapter(realmModel, username);
-        try {
-            scimClient.createUser(model);
-        } catch (ScimException e) {
-            log.error("", e);
-        }
+        SkssJobQueue entity = new SkssJobQueue();
 
-        //return null;
-        return model;
+        entity.setId(KeycloakModelUtils.generateId());
+        entity.setAction("userCreate");
+        entity.setRealmId(realmModel.getId());
+
+        entity.setComponentId(componentModel.getId());
+        entity.setUsername(username);
+        entity.setProcessed(0);
+
+        em.persist(entity);
+        em.flush();
+
+        return null;
     }
 
     /**
@@ -94,11 +108,24 @@ public class SkssStorageProvider implements UserStorageProvider,
      */
     @Override
     public boolean removeUser(RealmModel realmModel, UserModel userModel) {
-        try {
-            scimClient.deleteUser(userModel);
-        } catch (ScimException e) {
-            log.error("", e);
+        if (userModel.getFirstAttribute("skss_id_" + componentModel.getId()) != null) {
+            return false;
         }
+
+        SkssJobQueue entity = new SkssJobQueue();
+
+        entity.setId(KeycloakModelUtils.generateId());
+        entity.setAction("userDelete");
+        entity.setRealmId(realmModel.getId());
+
+        entity.setComponentId(componentModel.getId());
+        entity.setUsername(userModel.getUsername());
+        entity.setProcessed(0);
+        entity.setExternalId(userModel.getFirstAttribute("skss_id_" + componentModel.getId()));
+
+        em.persist(entity);
+        em.flush();
+
         return true;
     }
 
@@ -124,17 +151,6 @@ public class SkssStorageProvider implements UserStorageProvider,
         return Collections.emptySet();
     }
 
-    protected SkssUserModel createAdapter(RealmModel realm, String username) {
-        UserModel localModel = keycloakSession.users().getUserByUsername(username, realm);
-        //UserModel localModel = keycloakSession.userLocalStorage().getUserByUsername(username, realm);
-
-        if (localModel == null) {
-            throw new RuntimeException("Could not find user " + username + " in session.");
-        }
-
-        return new SkssUserModel(keycloakSession, realm, componentModel, localModel);
-    }
-
     @Override
     public UserModel getUserById(String id, RealmModel realm) {
         UserModel localModel = keycloakSession.userLocalStorage().getUserById(id, realm);
@@ -151,6 +167,9 @@ public class SkssStorageProvider implements UserStorageProvider,
     }
 
     private SkssUserModel getUser(SkssUserModel skssModel) {
+        if (scimClient == null) {
+            return null;
+        }
 
         try {
             UserResource userResource = scimClient.getUser(skssModel);

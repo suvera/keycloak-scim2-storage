@@ -1,10 +1,12 @@
 package dev.suvera.keycloak.scim2.storage.storage;
 
+import com.unboundid.scim2.common.exceptions.ScimException;
 import org.keycloak.Config;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.component.ComponentValidationException;
 import org.keycloak.connections.jpa.JpaConnectionProvider;
 import org.keycloak.models.KeycloakSession;
+import org.keycloak.models.KeycloakSessionFactory;
 import org.keycloak.models.RealmModel;
 import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.provider.ProviderConfigurationBuilder;
@@ -62,13 +64,18 @@ public class SkssStorageProviderFactory implements UserStorageProviderFactory<Sk
         if (config.get("endPoint") == null || config.get("endPoint").isEmpty()) {
             throw new ComponentValidationException("SCIM 2.0 endPoint is required.", "endPoint");
         }
+
+        Scim2Client scimClient = new Scim2Client(config);
+        try {
+            scimClient.validate();
+        } catch (ScimException e) {
+            throw new ComponentValidationException(e.getMessage(), e);
+        }
     }
 
     @Override
     public SkssStorageProvider create(KeycloakSession keycloakSession, ComponentModel componentModel) {
-
-        startBackendJob(keycloakSession);
-
+        //startBackendJob(keycloakSession);
         return new SkssStorageProvider(keycloakSession, componentModel);
     }
 
@@ -97,5 +104,10 @@ public class SkssStorageProviderFactory implements UserStorageProviderFactory<Sk
     @Override
     public void close() {
         backendService.shutdown();
+    }
+
+    @Override
+    public void postInit(KeycloakSessionFactory factory) {
+        startBackendJob(factory.create());
     }
 }

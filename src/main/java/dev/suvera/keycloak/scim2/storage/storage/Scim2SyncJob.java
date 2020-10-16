@@ -13,6 +13,7 @@ import org.keycloak.models.jpa.entities.*;
 import org.keycloak.models.utils.KeycloakModelUtils;
 
 import javax.persistence.EntityManager;
+import javax.persistence.EntityTransaction;
 import java.util.List;
 
 /**
@@ -20,7 +21,7 @@ import java.util.List;
  * date: 10/15/2020 7:47 PM
  */
 public class Scim2SyncJob implements Runnable {
-    private static final Logger log = Logger.getLogger(SkssStorageProvider.class);
+    private static final Logger log = Logger.getLogger(Scim2SyncJob.class);
     private final EntityManager em;
     private final KeycloakSession session;
 
@@ -32,13 +33,12 @@ public class Scim2SyncJob implements Runnable {
     @Override
     public void run() {
 
-        //noinspection InfiniteLoopStatement
         while (true) {
 
             try {
                 performSync();
             } catch (Exception e) {
-                log.error(e.getMessage());
+                log.error(e.getMessage(), e);
             }
 
             try {
@@ -46,30 +46,41 @@ public class Scim2SyncJob implements Runnable {
                 //noinspection BusyWait
                 Thread.sleep(60000);
             } catch (InterruptedException e) {
-                log.error(e.getMessage());
+                log.error(e.getMessage(), e);
+                break;
             }
         }
     }
 
     private void performSync() {
         List<SkssJobQueue> jobs = getPendingJobs();
+        System.out.println(jobs);
         if (jobs == null) {
             return;
         }
 
         for (SkssJobQueue job : jobs) {
+            log.info("JOB: " + job);
+            EntityTransaction tx = em.getTransaction();
+            tx.begin();
             try {
                 executeJob(job);
             } catch (Exception e) {
-                log.error(e.getMessage());
+                log.error(e.getMessage(), e);
+
+                if (System.currentTimeMillis() - job.getCreatedOn().getTime() < 60000) {
+                    tx.rollback();
+                    break;
+                }
             }
 
             deleteJob(job);
+            tx.commit();
         }
     }
 
     private RealmModel getRealmModel(String realmId) {
-        String sql = "select u from RealmEntity u where u.id = :realmId";
+        String sql = "select u from RealmEntity u where u.name = :realmId";
 
         RealmEntity realm = em.createQuery(sql, RealmEntity.class)
                 .setParameter("realmId", realmId)
@@ -79,11 +90,13 @@ public class Scim2SyncJob implements Runnable {
     }
 
     private void executeJob(SkssJobQueue job) throws Exception {
-        ComponentModel component = getComponent(job.getComponentId(), job.getRealmId());
         RealmModel realmModel = getRealmModel(job.getRealmId());
 
+        ComponentModel component = getComponent(job.getComponentId(), realmModel.getId());
+        Scim2Client scimClient = Scim2ClientFactory.getClient(component);
+
         if (job.getAction().equals("userCreate")) {
-            UserEntity userEntity = getUserEntity(job.getUsername(), job.getRealmId());
+            UserEntity userEntity = getUserEntity(job.getUsername(), realmModel.getId());
             if (userEntity == null) {
                 if (System.currentTimeMillis() - job.getCreatedOn().getTime() < 3000) {
                     throw new Exception("User " + job.getUsername() + " count not be found");
@@ -91,7 +104,6 @@ public class Scim2SyncJob implements Runnable {
                 return;
             }
 
-            Scim2Client scimClient = new Scim2Client(component);
             scimClient.createUser(new SkssUserModel(
                     session,
                     realmModel,
@@ -100,7 +112,7 @@ public class Scim2SyncJob implements Runnable {
             ));
 
         } else if (job.getAction().equals("userDelete")) {
-            // TODO: need to work on it
+            scimClient.deleteUser(job.getExternalId());
         }
     }
 
@@ -120,7 +132,7 @@ public class Scim2SyncJob implements Runnable {
         String sql = "select u from SkssJobQueue u where u.processed = 0 order by u.createdOn asc";
 
         return em.createQuery(sql, SkssJobQueue.class)
-                .setMaxResults(100)
+                .setMaxResults(10)
                 .getResultList();
     }
 
@@ -140,7 +152,7 @@ public class Scim2SyncJob implements Runnable {
     }
 
     private ComponentModel getComponent(String cmpId, String realmId) {
-        String sql = "select u from ComponentEntity u where u.id = :cmpId and u.realmId = :realmId";
+        String sql = "select u from ComponentEntity u where u.id = :cmpId and u.realm.id = :realmId";
 
         ComponentEntity c = em.createQuery(sql, ComponentEntity.class)
                 .setParameter("realmId", realmId)

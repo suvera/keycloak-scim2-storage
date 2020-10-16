@@ -1,6 +1,7 @@
 package dev.suvera.keycloak.scim2.storage.jpa;
 
 import lombok.Data;
+import lombok.ToString;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -14,6 +15,7 @@ import java.util.Date;
  */
 @Data
 @Entity
+@ToString
 @Table(name = "SKSS_JOB_QUEUE")
 public class SkssJobQueue {
     @Id
