@@ -30,6 +30,13 @@
         <okhttp.version>4.9.0</okhttp.version>
     </properties>
 
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
     <dependencies>
         <dependency>
             <groupId>org.projectlombok</groupId>
@@ -111,9 +118,15 @@
         </dependency>
 
         <dependency>
-            <groupId>com.unboundid.product.scim2</groupId>
+            <groupId>com.github.suvera.scim2-sdk</groupId>
+            <artifactId>scim2-sdk-schema</artifactId>
+            <version>master-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.suvera.scim2-sdk</groupId>
             <artifactId>scim2-sdk-client</artifactId>
-            <version>2.3.5</version>
+            <version>master-SNAPSHOT</version>
         </dependency>
 
     </dependencies>

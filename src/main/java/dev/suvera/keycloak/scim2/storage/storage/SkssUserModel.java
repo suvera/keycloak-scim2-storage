@@ -1,6 +1,6 @@
 package dev.suvera.keycloak.scim2.storage.storage;
 
-import com.unboundid.scim2.common.types.UserResource;
+import dev.suvera.scim2.schema.data.user.UserRecord;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
@@ -20,7 +20,7 @@ import java.util.Set;
 public class SkssUserModel extends AbstractUserAdapterFederatedStorage {
     private String username;
     private UserModel localModel;
-    private UserResource userResource;
+    private UserRecord userResource;
 
     public SkssUserModel(
             KeycloakSession session,
@@ -84,11 +84,11 @@ public class SkssUserModel extends AbstractUserAdapterFederatedStorage {
         this.localModel = localModel;
     }
 
-    public UserResource getUserResource() {
+    public UserRecord getUserResource() {
         return userResource;
     }
 
-    public void setUserResource(UserResource userResource) {
+    public void setUserResource(UserRecord userResource) {
         this.userResource = userResource;
     }
 

@@ -2,27 +2,18 @@ package dev.suvera.keycloak.scim2.storage.storage;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.unboundid.scim2.client.ScimService;
-import com.unboundid.scim2.common.exceptions.ScimException;
-import com.unboundid.scim2.common.messages.ListResponse;
-import com.unboundid.scim2.common.types.*;
+import com.google.common.collect.ImmutableSet;
+import dev.suvera.scim2.client.Scim2Client;
+import dev.suvera.scim2.client.Scim2ClientBuilder;
+import dev.suvera.scim2.schema.ScimConstant;
+import dev.suvera.scim2.schema.data.group.GroupRecord;
+import dev.suvera.scim2.schema.data.user.UserRecord;
+import dev.suvera.scim2.schema.ex.ScimException;
 import org.jboss.logging.Logger;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.models.GroupModel;
 import org.keycloak.models.RoleModel;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.ClientRequestFilter;
-import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.MultivaluedMap;
-import javax.xml.bind.DatatypeConverter;
-import java.nio.charset.StandardCharsets;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -31,18 +22,16 @@ import java.util.List;
  * author: suvera
  * date: 10/15/2020 11:25 AM
  */
-@SuppressWarnings("FieldCanBeLocal")
-public class Scim2Client {
-    private static final Logger log = Logger.getLogger(Scim2Client.class);
+@SuppressWarnings({"FieldCanBeLocal", "unused"})
+public class ScimClient2 {
+    private static final Logger log = Logger.getLogger(ScimClient2.class);
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private final ComponentModel componentModel;
-    private ScimService scimService = null;
-    private ServiceProviderConfigResource spConfig;
-    private ResourceTypeResource userResource;
-    private ResourceTypeResource groupResource;
+    private Scim2Client scimService = null;
+    private ScimException scimException = null;
 
-    public Scim2Client(ComponentModel componentModel) {
+    public ScimClient2(ComponentModel componentModel) {
         this.componentModel = componentModel;
 
         String endPoint = componentModel.get("endPoint");
@@ -51,81 +40,32 @@ public class Scim2Client {
 
         log.info("SCIM 2.0 endPoint: " + endPoint);
 
-        SSLContext sslcontext;
+        Scim2ClientBuilder builder = new Scim2ClientBuilder(endPoint)
+                .usernamePassword(username, password)
+                .allowSelfSigned(true);
+
         try {
-            sslcontext = SSLContext.getInstance("TLS");
-
-            sslcontext.init(null, new TrustManager[]{new X509TrustManager() {
-                public void checkClientTrusted(X509Certificate[] arg0, String arg1) throws CertificateException {
-                }
-
-                public void checkServerTrusted(X509Certificate[] arg0, String arg1) throws CertificateException {
-                }
-
-                public X509Certificate[] getAcceptedIssuers() {
-                    return new X509Certificate[0];
-                }
-            }}, new java.security.SecureRandom());
-        } catch (Exception e) {
-            log.error("", e);
-            return;
+            scimService = builder.build();
+        } catch (ScimException e) {
+            scimException = e;
         }
-
-        Client client = ClientBuilder.newBuilder()
-                .sslContext(sslcontext)
-                .hostnameVerifier((s1, s2) -> true)
-                .register((ClientRequestFilter) requestContext -> {
-                    if (username == null || username.isEmpty()) {
-                        return;
-                    }
-
-                    log.info("SCIM 2.0 username: ****** , password: ******");
-                    String token = username + ":" + password;
-                    token = "Basic " + DatatypeConverter.printBase64Binary(token.getBytes(StandardCharsets.UTF_8));
-
-                    MultivaluedMap<String, Object> headers = requestContext.getHeaders();
-                    headers.add("Authorization", token);
-                }).build();
-
-
-        WebTarget target = client.target(endPoint);
-        this.scimService = new ScimService(target);
     }
 
     public void validate() throws ScimException {
-        if (scimService == null) {
-            throw new ScimException(0, "Scim service is not working", null);
-        }
-
-        try {
-            spConfig = scimService.getServiceProviderConfig();
-            ListResponse<ResourceTypeResource> resourceTypes = scimService.getResourceTypes();
-
-            for (ResourceTypeResource resource : resourceTypes.getResources()) {
-
-                log.info("Schema: " + resource.getSchema().toString());
-
-                if (resource.getSchema().toString().equals("urn:ietf:params:scim:schemas:core:2.0:User")) {
-                    this.userResource = resource;
-                } else if (resource.getSchema().toString().equals("urn:ietf:params:scim:schemas:core:2.0:Group")) {
-                    this.groupResource = resource;
-                }
-            }
-        } catch (ScimException e) {
-            log.error("", e);
-            scimService = null;
-            throw e;
+        if (scimException != null) {
+            throw scimException;
         }
     }
 
-    private void buildScimUser(SkssUserModel userModel, SkssUserResource user) {
+    private void buildScimUser(SkssUserModel userModel, UserRecord user) {
         user.setUserName(userModel.getUsername());
         //user.setPassword();
 
-        Name name = new Name()
-                .setGivenName(userModel.getFirstName() == null ? userModel.getUsername()
-                        : userModel.getFirstName())
-                .setFamilyName(userModel.getLastName());
+        UserRecord.UserName name = new UserRecord.UserName();
+        name.setGivenName(userModel.getFirstName() == null ? userModel.getUsername()
+                : userModel.getFirstName());
+        name.setFamilyName(userModel.getLastName());
+        user.setName(name);
 
         if (isAttributeNotNull(userModel, "honorificPrefix")) {
             name.setHonorificPrefix(userModel.getFirstAttribute("honorificPrefix"));
@@ -136,19 +76,21 @@ public class Scim2Client {
         user.setName(name);
 
         if (userModel.getEmail() != null) {
-            Email email = new Email()
-                    .setType("work")
-                    .setPrimary(true)
-                    .setValue(userModel.getEmail());
+            UserRecord.UserEmail email = new UserRecord.UserEmail();
+            email.setType("work");
+            email.setPrimary(true);
+            email.setValue(userModel.getEmail());
+
             user.setEmails(Collections.singletonList(email));
         } else {
             user.setEmails(Collections.emptyList());
         }
 
+        user.setSchemas(ImmutableSet.of(ScimConstant.URN_USER));
         user.setExternalId(userModel.getId());
         user.setActive(userModel.isEnabled());
 
-        List<Group> groups = new ArrayList<>();
+        List<UserRecord.UserGroup> groups = new ArrayList<>();
         for (GroupModel groupModel : userModel.getGroups()) {
             try {
                 createGroup(groupModel);
@@ -156,7 +98,7 @@ public class Scim2Client {
                 log.error("", e);
             }
 
-            Group grp = new Group();
+            UserRecord.UserGroup grp = new UserRecord.UserGroup();
             grp.setDisplay(groupModel.getName());
             grp.setValue(groupModel.getId());
             grp.setType("direct");
@@ -165,9 +107,9 @@ public class Scim2Client {
         }
         user.setGroups(groups);
 
-        List<Role> roles = new ArrayList<>();
+        List<UserRecord.UserRole> roles = new ArrayList<>();
         for (RoleModel roleModel : userModel.getRoleMappings()) {
-            Role role = new Role();
+            UserRecord.UserRole role = new UserRecord.UserRole();
             role.setDisplay(roleModel.getName());
             role.setValue(roleModel.getId());
             role.setType("direct");
@@ -191,15 +133,12 @@ public class Scim2Client {
         }
 
         if (isAttributeNotNull(userModel, "addresses_primary")) {
-            List<Address> addresses = new ArrayList<>();
+            List<UserRecord.UserAddress> addresses = new ArrayList<>();
             try {
-                Address addr = objectMapper.readValue(
+                UserRecord.UserAddress addr = objectMapper.readValue(
                         userModel.getFirstAttribute("addresses_primary"),
-                        Address.class
+                        UserRecord.UserAddress.class
                 );
-                if (addr.getPrimary() == null) {
-                    addr.setPrimary(false);
-                }
                 addresses.add(addr);
             } catch (JsonProcessingException e) {
                 log.error("", e);
@@ -211,15 +150,12 @@ public class Scim2Client {
         }
 
         if (isAttributeNotNull(userModel, "phoneNumbers_primary")) {
-            List<PhoneNumber> phones = new ArrayList<>();
+            List<UserRecord.UserPhoneNumber> phones = new ArrayList<>();
             try {
-                PhoneNumber phone = objectMapper.readValue(
+                UserRecord.UserPhoneNumber phone = objectMapper.readValue(
                         userModel.getFirstAttribute("phoneNumbers_primary"),
-                        PhoneNumber.class
+                        UserRecord.UserPhoneNumber.class
                 );
-                if (phone.getPrimary() == null) {
-                    phone.setPrimary(false);
-                }
                 phones.add(phone);
             } catch (JsonProcessingException e) {
                 log.error("", e);
@@ -261,10 +197,10 @@ public class Scim2Client {
             return;
         }
 
-        SkssUserResource user = new SkssUserResource();
+        UserRecord user = new UserRecord();
         buildScimUser(userModel, user);
 
-        user = scimService.create(userResource.getEndpoint().getPath(), user);
+        user = scimService.createUser(user);
 
         userModel.saveExternalUserId(
                 componentModel.getId(),
@@ -284,14 +220,14 @@ public class Scim2Client {
             return;
         }
 
-        SkssUserResource user = getUser(userModel);
+        UserRecord user = getUser(userModel);
         if (user == null) {
             return;
         }
 
         buildScimUser(userModel, user);
 
-        user = scimService.replace(user);
+        user = scimService.replaceUser(id, user);
 
         userModel.saveExternalUserId(
                 componentModel.getId(),
@@ -299,7 +235,7 @@ public class Scim2Client {
         );
     }
 
-    public SkssUserResource getUser(SkssUserModel userModel) throws ScimException {
+    public UserRecord getUser(SkssUserModel userModel) throws ScimException {
         String id = userModel.getExternalUserId(componentModel.getId());
 
         if (id == null) {
@@ -307,14 +243,16 @@ public class Scim2Client {
             return null;
         }
 
-        return scimService.retrieve(userResource.getEndpoint().getPath(), id, SkssUserResource.class);
+        return scimService.readUser(id);
     }
 
     public void deleteUser(String skssId) throws ScimException {
         if (scimService == null) {
             return;
         }
-        scimService.delete(userResource.getEndpoint().getPath(), skssId);
+        if (skssId != null) {
+            scimService.deleteUser(skssId);
+        }
     }
 
     public void createGroup(GroupModel groupModel) throws ScimException {
@@ -326,10 +264,10 @@ public class Scim2Client {
             return;
         }
 
-        GroupResource grp = new GroupResource();
+        GroupRecord grp = new GroupRecord();
         grp.setDisplayName(groupModel.getName());
 
-        grp = scimService.create(groupResource.getEndpoint().getPath(), grp);
+        grp = scimService.createGroup(grp);
 
         groupModel.setSingleAttribute(
                 "skss_id_" + componentModel.getId(),
@@ -349,9 +287,9 @@ public class Scim2Client {
             return;
         }
 
-        GroupResource grp = scimService.retrieve(groupResource.getEndpoint().getPath(), id, GroupResource.class);
+        GroupRecord grp = scimService.readGroup(id);
 
-        grp = scimService.replace(grp);
+        grp = scimService.replaceGroup(id, grp);
         grp.setDisplayName(groupModel.getName());
 
         groupModel.setSingleAttribute(
@@ -366,6 +304,8 @@ public class Scim2Client {
         }
 
         String id = groupModel.getFirstAttribute("skss_id_" + componentModel.getId());
-        scimService.delete(groupResource.getEndpoint().getPath(), id);
+        if (id != null) {
+            scimService.deleteGroup(id);
+        }
     }
 }

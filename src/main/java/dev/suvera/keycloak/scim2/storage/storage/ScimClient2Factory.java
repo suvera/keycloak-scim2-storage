@@ -1,6 +1,6 @@
 package dev.suvera.keycloak.scim2.storage.storage;
 
-import com.unboundid.scim2.common.exceptions.ScimException;
+import dev.suvera.scim2.schema.ex.ScimException;
 import org.keycloak.component.ComponentModel;
 
 import java.util.Map;
@@ -10,12 +10,12 @@ import java.util.concurrent.ConcurrentHashMap;
  * author: suvera
  * date: 10/16/2020 9:31 AM
  */
-public class Scim2ClientFactory {
-    public static final Map<String, Scim2Client> instances = new ConcurrentHashMap<>();
+public class ScimClient2Factory {
+    public static final Map<String, ScimClient2> instances = new ConcurrentHashMap<>();
 
-    public static synchronized Scim2Client getClient(ComponentModel componentModel) throws ScimException {
+    public static synchronized ScimClient2 getClient(ComponentModel componentModel) throws ScimException {
         if (!instances.containsKey(componentModel.getId())) {
-            Scim2Client scimClient = new Scim2Client(componentModel);
+            ScimClient2 scimClient = new ScimClient2(componentModel);
 
             scimClient.validate();
 

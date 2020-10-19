@@ -1,8 +1,8 @@
 package dev.suvera.keycloak.scim2.storage.storage;
 
-import com.unboundid.scim2.common.exceptions.ScimException;
-import com.unboundid.scim2.common.types.UserResource;
 import dev.suvera.keycloak.scim2.storage.jpa.SkssJobQueue;
+import dev.suvera.scim2.schema.data.user.UserRecord;
+import dev.suvera.scim2.schema.ex.ScimException;
 import org.jboss.logging.Logger;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.connections.jpa.JpaConnectionProvider;
@@ -32,7 +32,7 @@ public class SkssStorageProvider implements UserStorageProvider,
     private final KeycloakSession keycloakSession;
     private final ComponentModel componentModel;
     private final EntityManager em;
-    private Scim2Client scimClient;
+    private ScimClient2 scimClient;
 
     public SkssStorageProvider(KeycloakSession keycloakSession, ComponentModel componentModel) {
         this.keycloakSession = keycloakSession;
@@ -40,7 +40,7 @@ public class SkssStorageProvider implements UserStorageProvider,
         em = keycloakSession.getProvider(JpaConnectionProvider.class).getEntityManager();
 
         try {
-            scimClient = Scim2ClientFactory.getClient(componentModel);
+            scimClient = ScimClient2Factory.getClient(componentModel);
         } catch (ScimException e) {
             log.error("", e);
             scimClient = null;
@@ -136,6 +136,7 @@ public class SkssStorageProvider implements UserStorageProvider,
 
     @Override
     public boolean updateCredential(RealmModel realmModel, UserModel userModel, CredentialInput credentialInput) {
+        //noinspection deprecation
         if (credentialInput.getType().equals(CredentialModel.PASSWORD))
             throw new ReadOnlyException("user is read only for this update");
 
@@ -172,7 +173,7 @@ public class SkssStorageProvider implements UserStorageProvider,
         }
 
         try {
-            UserResource userResource = scimClient.getUser(skssModel);
+            UserRecord userResource = scimClient.getUser(skssModel);
             if (userResource == null) {
                 return null;
             }

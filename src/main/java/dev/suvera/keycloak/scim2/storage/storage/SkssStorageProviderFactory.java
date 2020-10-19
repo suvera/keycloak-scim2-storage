@@ -1,10 +1,9 @@
 package dev.suvera.keycloak.scim2.storage.storage;
 
-import com.unboundid.scim2.common.exceptions.ScimException;
+import dev.suvera.scim2.schema.ex.ScimException;
 import org.keycloak.Config;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.component.ComponentValidationException;
-import org.keycloak.connections.jpa.JpaConnectionProvider;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
 import org.keycloak.models.RealmModel;
@@ -65,7 +64,7 @@ public class SkssStorageProviderFactory implements UserStorageProviderFactory<Sk
             throw new ComponentValidationException("SCIM 2.0 endPoint is required.", "endPoint");
         }
 
-        Scim2Client scimClient = new Scim2Client(config);
+        ScimClient2 scimClient = new ScimClient2(config);
         try {
             scimClient.validate();
         } catch (ScimException e) {

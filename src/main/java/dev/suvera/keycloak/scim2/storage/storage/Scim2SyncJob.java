@@ -93,7 +93,7 @@ public class Scim2SyncJob implements Runnable {
         RealmModel realmModel = getRealmModel(job.getRealmId());
 
         ComponentModel component = getComponent(job.getComponentId(), realmModel.getId());
-        Scim2Client scimClient = Scim2ClientFactory.getClient(component);
+        ScimClient2 scimClient = ScimClient2Factory.getClient(component);
 
         if (job.getAction().equals("userCreate")) {
             UserEntity userEntity = getUserEntity(job.getUsername(), realmModel.getId());

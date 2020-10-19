@@ -1,6 +1,6 @@
 # Keycloak SCIM 2.0 outbound user provisioning
 
-**Keycloak** Open Source Identity and Access Management For Modern Applications and Services
+**Keycloak** is an open source Identity and Access management system for modern applications and services.
 
 more info https://github.com/keycloak/keycloak
 
@@ -22,7 +22,8 @@ mvn clean install
 
 # Copy jar file to keyclock server
 
- cp -f target/suvera-keycloak-scim2-outbound-provisioning-jar-with-dependencies.jar /path/to/keycloak-11.0.2/standalone/deployments/
+ cp -f target/suvera-keycloak-scim2-outbound-provisioning-jar-with-dependencies.jar \
+        /path/to/keycloak-11.0.2/standalone/deployments/
 
 
 # Restart keycloak server
