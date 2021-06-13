@@ -36,17 +36,17 @@ mvn clean install
 
 2) Select "User Federation" Add SCIM 2.0 Service Provider 
 
-![User Federation](scim2_storage_01.png)
+![User Federation](https://suvera.github.io/assets/images/scim2_storage_01.png)
 
 
 3) Add new SCIM 2.0 User federation 
 
-![Add SCIM 2.0 User Federation](scim2_storage_02.png)
+![Add SCIM 2.0 User Federation](https://suvera.github.io/assets/images/scim2_storage_02.png)
 
 
 4) Now go to "Users -> Add New User" 
 
-![Add New User](scim2_storage_03.png)
+![Add New User](https://suvera.github.io/assets/images/scim2_storage_03.png)
 
 
 5) That's it!, User will be added to your SCIM 2.0 Service provider too. 
