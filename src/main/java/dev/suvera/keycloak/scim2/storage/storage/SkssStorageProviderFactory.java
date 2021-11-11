@@ -46,6 +46,13 @@ public class SkssStorageProviderFactory implements UserStorageProviderFactory<Sk
                 .helpText("Basic Auth password to access the scim resources")
                 .add()
 
+                .property()
+                .name("bearerToken")
+                .type(ProviderConfigProperty.PASSWORD)
+                .label("Bearer Token")
+                .helpText("Bearer Token based Authentication")
+                .add()
+
                 .build();
     }
 

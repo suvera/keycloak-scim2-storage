@@ -37,12 +37,18 @@ public class ScimClient2 {
         String endPoint = componentModel.get("endPoint");
         String username = componentModel.get("username");
         String password = componentModel.get("password");
+        String bearerToken = componentModel.get("bearerToken");
 
         log.info("SCIM 2.0 endPoint: " + endPoint);
 
         Scim2ClientBuilder builder = new Scim2ClientBuilder(endPoint)
-                .usernamePassword(username, password)
                 .allowSelfSigned(true);
+
+        if (bearerToken != null && !bearerToken.isEmpty()) {
+            builder.bearerToken(bearerToken);
+        } else {
+            builder.usernamePassword(username, password);
+        }
 
         try {
             scimService = builder.build();

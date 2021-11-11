@@ -41,6 +41,8 @@ mvn clean install
 
 3) Add new SCIM 2.0 User federation 
 
+    - **Bearer Token** Authentication also supported,  though it's not shown in the screenshot.
+
 ![Add SCIM 2.0 User Federation](https://suvera.github.io/assets/images/scim2_storage_02.png)
 
 
