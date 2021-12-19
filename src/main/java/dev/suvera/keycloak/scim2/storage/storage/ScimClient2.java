@@ -14,9 +14,14 @@ import org.keycloak.component.ComponentModel;
 import org.keycloak.models.GroupModel;
 import org.keycloak.models.RoleModel;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * author: suvera
@@ -41,8 +46,31 @@ public class ScimClient2 {
 
         log.info("SCIM 2.0 endPoint: " + endPoint);
 
+        String resourceTypesJson = null;
+        String schemasJson = null;
+
+        ClassLoader classLoader = getClass().getClassLoader();
+        InputStream isResourceTypes = classLoader.getResourceAsStream("ResourceTypes.json");
+        if (isResourceTypes == null) {
+            log.error("file not found! ResourceTypes.json");
+            throw new IllegalArgumentException("file not found! ResourceTypes.json");
+        } else {
+            resourceTypesJson = inputStreamToString(isResourceTypes);
+        }
+
+        InputStream isSchemas = classLoader.getResourceAsStream("Schemas.json");
+        if (isSchemas == null) {
+            log.error("file not found! Schemas.json");
+            throw new IllegalArgumentException("file not found! Schemas.json");
+        } else {
+            schemasJson = inputStreamToString(isSchemas);
+        }
+
         Scim2ClientBuilder builder = new Scim2ClientBuilder(endPoint)
-                .allowSelfSigned(true);
+                .allowSelfSigned(true)
+                .resourceTypes(resourceTypesJson)
+                .schemas(schemasJson)
+            ;
 
         if (bearerToken != null && !bearerToken.isEmpty()) {
             builder.bearerToken(bearerToken);
@@ -55,6 +83,13 @@ public class ScimClient2 {
         } catch (ScimException e) {
             scimException = e;
         }
+    }
+
+    private String inputStreamToString(InputStream is) {
+        return new BufferedReader(
+            new InputStreamReader(is, StandardCharsets.UTF_8))
+            .lines()
+            .collect(Collectors.joining("\n"));
     }
 
     public void validate() throws ScimException {

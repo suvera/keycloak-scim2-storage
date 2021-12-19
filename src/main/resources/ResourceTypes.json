@@ -1,0 +1,66 @@
+{
+    "totalResults": 4,
+    "itemsPerPage": 20,
+    "startIndex": 1,
+    "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+    ],
+    "Resources": [
+        {
+            "schemas": [
+                "urn:ietf:params:scim:schemas:core:2.0:ResourceType"
+            ],
+            "id": "ResourceType",
+            "meta": {
+                "resourceType": "ResourceType",
+                "location": "{SCIM_BASE}/ResourceTypes/ResourceType"
+            },
+            "name": "ResourceType",
+            "description": "Resource Type",
+            "endpoint": "/ResourceTypes",
+            "schema": "urn:ietf:params:scim:schemas:core:2.0:ResourceType"
+        },
+        {
+            "schemas": [
+                "urn:ietf:params:scim:schemas:core:2.0:ResourceType"
+            ],
+            "id": "ServiceProviderConfig",
+            "meta": {
+                "resourceType": "ResourceType",
+                "location": "{SCIM_BASE}/ResourceTypes/ServiceProviderConfig"
+            },
+            "name": "Service Provider Configuration",
+            "description": "Service Provider Configuration",
+            "endpoint": "/ServiceProviderConfigs",
+            "schema": "urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig"
+        },
+        {
+            "schemas": [
+                "urn:ietf:params:scim:schemas:core:2.0:ResourceType"
+            ],
+            "id": "Schema",
+            "meta": {
+                "resourceType": "ResourceType",
+                "location": "{SCIM_BASE}/ResourceTypes/Schema"
+            },
+            "name": "Schema",
+            "description": "Schema",
+            "endpoint": "/Schemas",
+            "schema": "urn:ietf:params:scim:schemas:core:2.0:Schema"
+        },
+        {
+            "schemas": [
+                "urn:ietf:params:scim:schemas:core:2.0:ResourceType"
+            ],
+            "id": "Group",
+            "meta": {
+                "resourceType": "ResourceType",
+                "location": "{SCIM_BASE}/ResourceTypes/Group"
+            },
+            "name": "Group",
+            "description": "Group",
+            "endpoint": "/Groups",
+            "schema": "urn:ietf:params:scim:schemas:core:2.0:Group"
+        }
+    ]
+}

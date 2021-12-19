@@ -120,13 +120,13 @@
         <dependency>
             <groupId>com.github.suvera.scim2-sdk</groupId>
             <artifactId>scim2-sdk-schema</artifactId>
-            <version>master-SNAPSHOT</version>
+            <version>8a73bc6</version>
         </dependency>
 
         <dependency>
             <groupId>com.github.suvera.scim2-sdk</groupId>
             <artifactId>scim2-sdk-client</artifactId>
-            <version>master-SNAPSHOT</version>
+            <version>8a73bc6</version>
         </dependency>
 
     </dependencies>
