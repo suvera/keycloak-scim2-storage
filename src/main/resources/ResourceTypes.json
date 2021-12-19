@@ -52,6 +52,20 @@
             "schemas": [
                 "urn:ietf:params:scim:schemas:core:2.0:ResourceType"
             ],
+            "id": "User",
+            "meta": {
+                "resourceType": "ResourceType",
+                "location": "{SCIM_BASE}/ResourceTypes/User"
+            },
+            "name": "User",
+            "description": "User Account",
+            "endpoint": "/Users",
+            "schema": "urn:ietf:params:scim:schemas:core:2.0:User"
+        },
+        {
+            "schemas": [
+                "urn:ietf:params:scim:schemas:core:2.0:ResourceType"
+            ],
             "id": "Group",
             "meta": {
                 "resourceType": "ResourceType",

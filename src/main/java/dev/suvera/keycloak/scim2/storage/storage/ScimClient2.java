@@ -9,6 +9,7 @@ import dev.suvera.scim2.schema.ScimConstant;
 import dev.suvera.scim2.schema.data.group.GroupRecord;
 import dev.suvera.scim2.schema.data.user.UserRecord;
 import dev.suvera.scim2.schema.ex.ScimException;
+import org.apache.commons.lang3.StringUtils;
 import org.jboss.logging.Logger;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.models.GroupModel;
@@ -45,6 +46,7 @@ public class ScimClient2 {
         String bearerToken = componentModel.get("bearerToken");
 
         log.info("SCIM 2.0 endPoint: " + endPoint);
+        endPoint = StringUtils.stripEnd(endPoint, " /");
 
         String resourceTypesJson = null;
         String schemasJson = null;
@@ -56,6 +58,7 @@ public class ScimClient2 {
             throw new IllegalArgumentException("file not found! ResourceTypes.json");
         } else {
             resourceTypesJson = inputStreamToString(isResourceTypes);
+            resourceTypesJson = resourceTypesJson.replaceAll("\\{SCIM_BASE}", endPoint);
         }
 
         InputStream isSchemas = classLoader.getResourceAsStream("Schemas.json");
@@ -64,6 +67,7 @@ public class ScimClient2 {
             throw new IllegalArgumentException("file not found! Schemas.json");
         } else {
             schemasJson = inputStreamToString(isSchemas);
+            schemasJson = schemasJson.replaceAll("\\{SCIM_BASE}", endPoint);
         }
 
         Scim2ClientBuilder builder = new Scim2ClientBuilder(endPoint)
