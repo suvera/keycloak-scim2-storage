@@ -30,7 +30,12 @@ mvn clean install
 
 ```
 
-## User Provisioning
+### Is your server is compliant to SCIM 2.0?
+
+Here is the tool to test the compliance level  https://github.com/suvera/scim2-compliance-test-utility
+
+
+## User Provisioning Steps 
 
 1) Login to Keyclock as "admin"
 
