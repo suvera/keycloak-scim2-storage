@@ -126,7 +126,7 @@
         <dependency>
             <groupId>com.github.suvera.scim2-sdk</groupId>
             <artifactId>scim2-sdk-client</artifactId>
-            <version>8a73bc6</version>
+            <version>4094f3b</version>
         </dependency>
 
     </dependencies>
