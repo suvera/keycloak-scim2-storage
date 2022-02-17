@@ -91,7 +91,7 @@ public class SkssStorageProvider implements UserStorageProvider,
 
         entity.setId(KeycloakModelUtils.generateId());
         entity.setAction("userCreate");
-        entity.setRealmId(realmModel.getId());
+        entity.setRealmId(realmModel.getName());
 
         entity.setComponentId(componentModel.getId());
         entity.setUsername(username);
