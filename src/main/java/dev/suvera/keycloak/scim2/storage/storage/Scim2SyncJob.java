@@ -1,6 +1,10 @@
 package dev.suvera.keycloak.scim2.storage.storage;
 
+import dev.suvera.keycloak.scim2.storage.jpa.FederatedUserEntity;
 import dev.suvera.keycloak.scim2.storage.jpa.SkssJobQueue;
+import dev.suvera.scim2.schema.data.user.UserRecord;
+import dev.suvera.scim2.schema.ex.ScimException;
+
 import org.jboss.logging.Logger;
 import org.keycloak.common.util.MultivaluedHashMap;
 import org.keycloak.component.ComponentModel;
@@ -96,36 +100,36 @@ public class Scim2SyncJob implements Runnable {
         ScimClient2 scimClient = ScimClient2Factory.getClient(component);
 
         if (job.getAction().equals("userCreate")) {
-            UserEntity userEntity = getUserEntity(job.getUsername(), realmModel.getId());
-            if (userEntity == null) {
-                if (System.currentTimeMillis() - job.getCreatedOn().getTime() < 3000) {
-                    throw new Exception("User " + job.getUsername() + " count not be found");
-                }
+            FederatedUserEntity federatedEntity = em.find(FederatedUserEntity.class, job.getUserId());
+            if (federatedEntity == null) {
+                log.info("could not find user by id: " + job.getUserId());
                 return;
             }
 
-            scimClient.createUser(new SkssUserModel(
-                    session,
-                    realmModel,
-                    component,
-                    new UserAdapter(session, realmModel, em, userEntity)
-            ));
+            FederatedUserAdapter federatedUserAdapter = new FederatedUserAdapter(session, realmModel, component, federatedEntity);
 
+            UserRecord user = null;
+            try {
+                user = scimClient.findUserByUsername(federatedUserAdapter.getUsername());
+            } catch (ScimException e) {
+                user = null;
+            }
+            
+            SkssUserModel skssUser = new SkssUserModel(
+                session,
+                realmModel,
+                component,
+                federatedUserAdapter
+            );
+
+            if (user == null) {
+                scimClient.createUser(skssUser, federatedUserAdapter);
+            } else {
+                scimClient.updateUser(skssUser);
+            }
         } else if (job.getAction().equals("userDelete")) {
             scimClient.deleteUser(job.getExternalId());
         }
-    }
-
-    @SuppressWarnings("UnnecessaryLocalVariable")
-    private UserEntity getUserEntity(String username, String realmId) {
-        String sql = "select u from UserEntity u where u.username = :username and u.realmId = :realmId";
-
-        UserEntity userEntity = em.createQuery(sql, UserEntity.class)
-                .setParameter("username", username)
-                .setParameter("realmId", realmId)
-                .getSingleResult();
-
-        return userEntity;
     }
 
     private List<SkssJobQueue> getPendingJobs() {

@@ -22,8 +22,8 @@ public class SkssJobQueue {
     @Column(name = "ID")
     private String id;
 
-    @Column(name = "USERNAME")
-    private String username;
+    @Column(name = "USER_ID")
+    private String userId;
 
     @Column(name = "ACTION", nullable = false)
     private String action;

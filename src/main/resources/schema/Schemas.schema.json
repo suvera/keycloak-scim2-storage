@@ -1,0 +1,161 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "ResourceType",
+    "description": "Metadata about a resources",
+    "type": "object",
+    "additionalItems": false,
+    "properties": {
+        "totalResults": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "itemsPerPage": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "startIndex": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "schemas": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+                "type": "string",
+                "enum": [
+                    "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+                ]
+            }
+        },
+        "Resources": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "schemas": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 1,
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "urn:ietf:params:scim:schemas:core:2.0:Schema"
+                            ]
+                        }
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "attributes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/definitions/attribute"
+                        }
+                    }
+                },
+                "required": [
+                    "schemas",
+                    "id",
+                    "meta",
+                    "attributes"
+                ]
+            }
+        }
+    },
+    "definitions": {
+        "attribute": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "string",
+                        "boolean",
+                        "decimal",
+                        "integer",
+                        "dateTime",
+                        "reference",
+                        "complex",
+                        "binary"
+                    ]
+                },
+                "subAttributes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/attribute"
+                    }
+                },
+                "multiValued": {
+                    "type": "boolean"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "canonicalValues": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "caseExact": {
+                    "type": "boolean"
+                },
+                "mutability": {
+                    "type": "string",
+                    "enum": [
+                        "readOnly",
+                        "readWrite",
+                        "immutable",
+                        "writeOnly"
+                    ]
+                },
+                "returned": {
+                    "type": "string",
+                    "enum": [
+                        "always",
+                        "never",
+                        "default",
+                        "request"
+                    ]
+                },
+                "uniqueness": {
+                    "type": "string",
+                    "enum": [
+                        "none",
+                        "server",
+                        "global"
+                    ]
+                },
+                "referenceTypes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [
+                "name",
+                "type",
+                "multiValued",
+                "description",
+                "required",
+                "caseExact",
+                "mutability",
+                "returned"
+            ]
+        }
+    }
+}

@@ -1,7 +1,7 @@
 package dev.suvera.keycloak.scim2.storage.storage;
 
+import dev.suvera.keycloak.scim2.storage.jpa.FederatedUserEntity;
 import dev.suvera.keycloak.scim2.storage.jpa.SkssJobQueue;
-import dev.suvera.scim2.schema.data.user.UserRecord;
 import dev.suvera.scim2.schema.ex.ScimException;
 import org.jboss.logging.Logger;
 import org.keycloak.component.ComponentModel;
@@ -12,12 +12,19 @@ import org.keycloak.credential.CredentialModel;
 import org.keycloak.models.*;
 import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.storage.ReadOnlyException;
+import org.keycloak.storage.StorageId;
 import org.keycloak.storage.UserStorageProvider;
 import org.keycloak.storage.user.UserLookupProvider;
+import org.keycloak.storage.user.UserQueryProvider;
 import org.keycloak.storage.user.UserRegistrationProvider;
 
 import javax.persistence.EntityManager;
+import javax.persistence.TypedQuery;
+
 import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -27,12 +34,14 @@ import java.util.Set;
 public class SkssStorageProvider implements UserStorageProvider,
         UserRegistrationProvider,
         CredentialInputUpdater,
-        UserLookupProvider {
+        UserLookupProvider,
+        UserQueryProvider {
     private static final Logger log = Logger.getLogger(SkssStorageProvider.class);
     private final KeycloakSession keycloakSession;
     private final ComponentModel componentModel;
     private final EntityManager em;
     private ScimClient2 scimClient;
+    public static final String PASSWORD_CACHE_KEY = FederatedUserAdapter.class.getName() + ".password";
 
     public SkssStorageProvider(KeycloakSession keycloakSession, ComponentModel componentModel) {
         this.keycloakSession = keycloakSession;
@@ -87,20 +96,22 @@ public class SkssStorageProvider implements UserStorageProvider,
      */
     @Override
     public UserModel addUser(RealmModel realmModel, String username) {
-        SkssJobQueue entity = new SkssJobQueue();
+        FederatedUserEntity federatedEntity = new FederatedUserEntity();
+        federatedEntity.setId(KeycloakModelUtils.generateId());
+        federatedEntity.setUsername(username);
+        em.persist(federatedEntity);
+        log.info("added user: " + username);
 
+        SkssJobQueue entity = new SkssJobQueue();
         entity.setId(KeycloakModelUtils.generateId());
         entity.setAction("userCreate");
         entity.setRealmId(realmModel.getName());
-
         entity.setComponentId(componentModel.getId());
-        entity.setUsername(username);
+        entity.setUserId(federatedEntity.getId());
         entity.setProcessed(0);
-
         em.persist(entity);
-        em.flush();
 
-        return null;
+        return new FederatedUserAdapter(keycloakSession, realmModel, componentModel, federatedEntity);
     }
 
     /**
@@ -108,23 +119,21 @@ public class SkssStorageProvider implements UserStorageProvider,
      */
     @Override
     public boolean removeUser(RealmModel realmModel, UserModel userModel) {
-        if (userModel.getFirstAttribute("skss_id_" + componentModel.getId()) != null) {
-            return false;
-        }
+        String persistenceId = StorageId.externalId(userModel.getId());
+        FederatedUserEntity federatedEntity = em.find(FederatedUserEntity.class, persistenceId);
+        if (federatedEntity == null) return false;
 
         SkssJobQueue entity = new SkssJobQueue();
-
         entity.setId(KeycloakModelUtils.generateId());
         entity.setAction("userDelete");
         entity.setRealmId(realmModel.getId());
-
         entity.setComponentId(componentModel.getId());
-        entity.setUsername(userModel.getUsername());
+        entity.setUserId(persistenceId);
         entity.setProcessed(0);
-        entity.setExternalId(userModel.getFirstAttribute("skss_id_" + componentModel.getId()));
-
+        entity.setExternalId(federatedEntity.getExternalId());
         em.persist(entity);
-        em.flush();
+
+        em.remove(federatedEntity);
 
         return true;
     }
@@ -154,61 +163,108 @@ public class SkssStorageProvider implements UserStorageProvider,
 
     @Override
     public UserModel getUserById(String id, RealmModel realm) {
-        UserModel localModel = keycloakSession.userLocalStorage().getUserById(id, realm);
-        if (localModel == null) {
+        log.info("getUserById: " + id);
+        String persistenceId = StorageId.externalId(id);
+        FederatedUserEntity federatedEntity = em.find(FederatedUserEntity.class, persistenceId);
+        if (federatedEntity == null) {
+            log.info("could not find user by id: " + id);
             return null;
         }
-
-        return getUser(new SkssUserModel(
-                keycloakSession,
-                realm,
-                componentModel,
-                localModel
-        ));
-    }
-
-    private SkssUserModel getUser(SkssUserModel skssModel) {
-        if (scimClient == null) {
-            return null;
-        }
-
-        try {
-            UserRecord userResource = scimClient.getUser(skssModel);
-            if (userResource == null) {
-                return null;
-            }
-
-            skssModel.setUserResource(userResource);
-
-            return skssModel;
-        } catch (ScimException e) {
-            log.error("", e);
-            return null;
-        }
+        return new FederatedUserAdapter(keycloakSession, realm, componentModel, federatedEntity);
     }
 
     @Override
     public UserModel getUserByUsername(String username, RealmModel realm) {
-        UserModel localModel = keycloakSession.userLocalStorage().getUserByUsername(username, realm);
-
-        if (localModel == null) {
+        log.info("getUserByUsername: " + username);
+        TypedQuery<FederatedUserEntity> query = em.createNamedQuery("getUserByUsername", FederatedUserEntity.class);
+        query.setParameter("username", username);
+        List<FederatedUserEntity> result = query.getResultList();
+        if (result.isEmpty()) {
+            log.info("could not find username: " + username);
             return null;
         }
 
-        return getUser(new SkssUserModel(keycloakSession, realm, componentModel, localModel));
+        return new FederatedUserAdapter(keycloakSession, realm, componentModel, result.get(0));
     }
 
     @Override
     public UserModel getUserByEmail(String email, RealmModel realm) {
-        UserModel localModel = keycloakSession.userLocalStorage().getUserByEmail(email, realm);
-        if (localModel == null) {
-            return null;
+        TypedQuery<FederatedUserEntity> query = em.createNamedQuery("getUserByEmail", FederatedUserEntity.class);
+        query.setParameter("email", email);
+        List<FederatedUserEntity> result = query.getResultList();
+        if (result.isEmpty()) return null;
+        return new FederatedUserAdapter(keycloakSession, realm, componentModel, result.get(0));
+    }
+    @Override
+    public int getUsersCount(RealmModel realm) {
+        Object count = em.createNamedQuery("getUserCount")
+                .getSingleResult();
+        return ((Number)count).intValue();
+    }
+
+    @Override
+    public List<UserModel> getUsers(RealmModel realm) {
+        return getUsers(realm, -1, -1);
+    }
+
+     @Override
+    public List<UserModel> getUsers(RealmModel realm, int firstResult, int maxResults) {
+        TypedQuery<FederatedUserEntity> query = em.createNamedQuery("getAllUsers", FederatedUserEntity.class);
+        if (firstResult != -1) {
+            query.setFirstResult(firstResult);
         }
-        return getUser(new SkssUserModel(
-                keycloakSession,
-                realm,
-                componentModel,
-                localModel
-        ));
+        if (maxResults != -1) {
+            query.setMaxResults(maxResults);
+        }
+        List<FederatedUserEntity> results = query.getResultList();
+        List<UserModel> users = new LinkedList<>();
+        for (FederatedUserEntity entity : results) users.add(new FederatedUserAdapter(keycloakSession, realm, componentModel, entity));
+        return users;
+    }
+
+    @Override
+    public List<UserModel> searchForUser(String search, RealmModel realm) {
+        return searchForUser(search, realm, -1, -1);
+    }
+
+    @Override
+    public List<UserModel> searchForUser(String search, RealmModel realm, int firstResult, int maxResults) {
+        TypedQuery<FederatedUserEntity> query = em.createNamedQuery("searchForUser", FederatedUserEntity.class);
+        query.setParameter("search", "%" + search.toLowerCase() + "%");
+        if (firstResult != -1) {
+            query.setFirstResult(firstResult);
+        }
+        if (maxResults != -1) {
+            query.setMaxResults(maxResults);
+        }
+        List<FederatedUserEntity> results = query.getResultList();
+        List<UserModel> users = new LinkedList<>();
+        for (FederatedUserEntity entity : results) users.add(new FederatedUserAdapter(keycloakSession, realm, componentModel, entity));
+        return users;
+    }
+
+    @Override
+    public List<UserModel> searchForUser(Map<String, String> params, RealmModel realm) {
+        return Collections.EMPTY_LIST;
+    }
+
+    @Override
+    public List<UserModel> searchForUser(Map<String, String> params, RealmModel realm, int firstResult, int maxResults) {
+        return Collections.EMPTY_LIST;
+    }
+
+    @Override
+    public List<UserModel> getGroupMembers(RealmModel realm, GroupModel group, int firstResult, int maxResults) {
+        return Collections.EMPTY_LIST;
+    }
+
+    @Override
+    public List<UserModel> getGroupMembers(RealmModel realm, GroupModel group) {
+        return Collections.EMPTY_LIST;
+    }
+
+    @Override
+    public List<UserModel> searchForUserByUserAttribute(String attrName, String attrValue, RealmModel realm) {
+        return Collections.EMPTY_LIST;
     }
 }

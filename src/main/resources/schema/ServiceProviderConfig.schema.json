@@ -1,0 +1,161 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "ServiceProviderConfig",
+    "description": "Service Provider Configuration",
+    "type": "object",
+    "additionalItems": false,
+    "properties": {
+        "schemas": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+                "type": "string",
+                "enum": [
+                    "urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig"
+                ]
+            }
+        },
+        "meta": {
+            "type": "object",
+            "required": [
+                "resourceType"
+            ],
+            "properties": {
+                "resourceType": {
+                    "type": "string",
+                    "enum": [
+                        "ServiceProviderConfig"
+                    ]
+                }
+            }
+        },
+        "documentationUri": {
+            "type": "string"
+        },
+        "patch": {
+            "type": "object",
+            "required": [
+                "supported"
+            ],
+            "properties": {
+                "supported": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "bulk": {
+            "type": "object",
+            "required": [
+                "supported",
+                "maxOperations",
+                "maxPayloadSize"
+            ],
+            "properties": {
+                "supported": {
+                    "type": "boolean"
+                },
+                "maxOperations": {
+                    "type": "integer"
+                },
+                "maxPayloadSize": {
+                    "type": "integer"
+                }
+            }
+        },
+        "filter": {
+            "type": "object",
+            "required": [
+                "supported",
+                "maxResults"
+            ],
+            "properties": {
+                "supported": {
+                    "type": "boolean"
+                },
+                "maxResults": {
+                    "type": "integer"
+                }
+            }
+        },
+        "changePassword": {
+            "type": "object",
+            "required": [
+                "supported"
+            ],
+            "properties": {
+                "supported": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "sort": {
+            "type": "object",
+            "required": [
+                "supported"
+            ],
+            "properties": {
+                "supported": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "etag": {
+            "type": "object",
+            "required": [
+                "supported"
+            ],
+            "properties": {
+                "supported": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "authenticationSchemes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "type",
+                    "name",
+                    "description"
+                ],
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "oauth",
+                            "oauth2",
+                            "oauthbearertoken",
+                            "httpbasic",
+                            "httpdigest",
+                            "bearer",
+                            "Bearer"
+                        ]
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "specUri": {
+                        "type": "string"
+                    },
+                    "documentationUri": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    },
+    "required": [
+        "schemas",
+        "patch",
+        "bulk",
+        "filter",
+        "changePassword",
+        "sort",
+        "etag"
+    ]
+}

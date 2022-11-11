@@ -33,24 +33,38 @@ public class SkssStorageProviderFactory implements UserStorageProviderFactory<Sk
                 .add()
 
                 .property()
+                .name("authorityUrl")
+                .type(ProviderConfigProperty.STRING_TYPE)
+                .label("Authority url")
+                .helpText("Username to access the scim resources")
+                .add()
+
+                .property()
                 .name("username")
                 .type(ProviderConfigProperty.STRING_TYPE)
                 .label("Username")
-                .helpText("Basic Auth username to access the scim resources")
+                .helpText("Username to access the scim resources")
                 .add()
 
                 .property()
                 .name("password")
                 .type(ProviderConfigProperty.PASSWORD)
                 .label("Password")
-                .helpText("Basic Auth password to access the scim resources")
+                .helpText("Password to access the scim resources")
                 .add()
 
                 .property()
-                .name("bearerToken")
-                .type(ProviderConfigProperty.PASSWORD)
-                .label("Bearer Token")
-                .helpText("Bearer Token based Authentication")
+                .name("clientId")
+                .type(ProviderConfigProperty.STRING_TYPE)
+                .label("Client Id")
+                .helpText("Client id to access the scim resources")
+                .add()
+
+                .property()
+                .name("clientSecret")
+                .type(ProviderConfigProperty.STRING_TYPE)
+                .label("Client Secret")
+                .helpText("Client secret to access the scim resources")
                 .add()
 
                 .build();
@@ -69,6 +83,9 @@ public class SkssStorageProviderFactory implements UserStorageProviderFactory<Sk
             throws ComponentValidationException {
         if (config.get("endPoint") == null || config.get("endPoint").isEmpty()) {
             throw new ComponentValidationException("SCIM 2.0 endPoint is required.", "endPoint");
+        }
+        if (config.get("authorityUrl") == null || config.get("authorityUrl").isEmpty()) {
+            throw new ComponentValidationException("Authority URL is required.", "endPoint");
         }
 
         ScimClient2 scimClient = new ScimClient2(config);

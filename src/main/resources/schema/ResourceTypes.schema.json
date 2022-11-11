@@ -1,0 +1,101 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "ResourceType",
+    "description": "Metadata about a resources",
+    "type": "object",
+    "additionalItems": false,
+    "properties": {
+        "totalResults": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "itemsPerPage": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "startIndex": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "schemas": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+                "type": "string",
+                "enum": [
+                    "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+                ]
+            }
+        },
+        "Resources": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "schemas": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "endpoint": {
+                        "type": "string"
+                    },
+                    "schema": {
+                        "type": "string"
+                    },
+                    "schemaExtensions": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/definitions/schemaExtensions"
+                            },
+                            {
+                                "type": "array",
+                                "description": "List of Schema Extensions ",
+                                "items": {
+                                    "$ref": "#/definitions/schemaExtensions"
+                                }
+                            }
+                        ]
+                    }
+                },
+                "required": [
+                    "schemas",
+                    "meta",
+                    "name",
+                    "endpoint",
+                    "schema"
+                ]
+            }
+        }
+    },
+    "definitions": {
+        "schemaExtensions": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "schema": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "schema",
+                "required"
+            ]
+        }
+    }
+}

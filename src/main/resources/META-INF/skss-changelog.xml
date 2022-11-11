@@ -5,11 +5,32 @@
 
     <changeSet author="suvera" id="table-job-queue">
 
+        <createTable tableName="FEDERATED_USER_ENTITY">
+            <column name="ID" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="USERNAME" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="EMAIL" type="VARCHAR(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="EXTERNAL_ID" type="VARCHAR(255)">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey
+                constraintName="PK_FEDERATED_USER_ENTITY"
+                tableName="FEDERATED_USER_ENTITY"
+                columnNames="ID"
+        />
+
         <createTable tableName="SKSS_JOB_QUEUE">
             <column name="ID" type="VARCHAR(36)">
                 <constraints nullable="false"/>
             </column>
-            <column name="USERNAME" type="VARCHAR(128)">
+            <column name="USER_ID" type="VARCHAR(128)">
                 <constraints nullable="true"/>
             </column>
             <column name="ACTION" type="VARCHAR(32)">

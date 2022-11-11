@@ -3,10 +3,16 @@ package dev.suvera.keycloak.scim2.storage.storage;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
+
+import dev.suvera.keycloak.scim2.storage.jpa.FederatedUserEntity;
 import dev.suvera.scim2.client.Scim2Client;
 import dev.suvera.scim2.client.Scim2ClientBuilder;
 import dev.suvera.scim2.schema.ScimConstant;
+import dev.suvera.scim2.schema.data.ExtendedRecord;
 import dev.suvera.scim2.schema.data.group.GroupRecord;
+import dev.suvera.scim2.schema.data.misc.ListResponse;
+import dev.suvera.scim2.schema.data.misc.MixedListResponse;
+import dev.suvera.scim2.schema.data.misc.SearchRequest;
 import dev.suvera.scim2.schema.data.user.UserRecord;
 import dev.suvera.scim2.schema.ex.ScimException;
 import org.apache.commons.lang3.StringUtils;
@@ -22,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -41,9 +48,11 @@ public class ScimClient2 {
         this.componentModel = componentModel;
 
         String endPoint = componentModel.get("endPoint");
+        String authorityUrl = componentModel.get("authorityUrl");
         String username = componentModel.get("username");
         String password = componentModel.get("password");
-        String bearerToken = componentModel.get("bearerToken");
+        String clientId = componentModel.get("clientId");
+        String clientSecret = componentModel.get("clientSecret");
 
         log.info("SCIM 2.0 endPoint: " + endPoint);
         endPoint = StringUtils.stripEnd(endPoint, " /");
@@ -74,13 +83,13 @@ public class ScimClient2 {
                 .allowSelfSigned(true)
                 .resourceTypes(resourceTypesJson)
                 .schemas(schemasJson)
-            ;
+                .clientSecret(authorityUrl, username, password, clientId, clientSecret);
 
-        if (bearerToken != null && !bearerToken.isEmpty()) {
+        /*if (bearerToken != null && !bearerToken.isEmpty()) {
             builder.bearerToken(bearerToken);
         } else {
             builder.usernamePassword(username, password);
-        }
+        }*/
 
         try {
             scimService = builder.build();
@@ -233,19 +242,17 @@ public class ScimClient2 {
         return (val == null ? "" : val);
     }
 
-    public void createUser(SkssUserModel userModel) throws ScimException {
+    public void createUser(SkssUserModel userModel, FederatedUserAdapter federatedUserAdapter) throws ScimException {
         if (scimService == null) {
             return;
         }
-        if (userModel.getExternalUserId(componentModel.getId()) != null) {
-            log.info("User already exist in the SCIM2 provider " + userModel.getUsername());
-            return;
-        }
-
+        
         UserRecord user = new UserRecord();
         buildScimUser(userModel, user);
 
         user = scimService.createUser(user);
+
+        federatedUserAdapter.setExternalId(user.getId());
 
         userModel.saveExternalUserId(
                 componentModel.getId(),
@@ -254,6 +261,16 @@ public class ScimClient2 {
         log.info("User record successfully sync'd to SKIM service provider. " + user.getId());
     }
 
+    public UserRecord findUserByUsername(String username) throws ScimException {
+        if (scimService == null) {
+            return null;
+        }
+
+        ListResponse<UserRecord> users = scimService.filterUser("userName", username);
+
+        return users.getResources().stream().findFirst().orElse(null);
+    }
+ 
     public void updateUser(SkssUserModel userModel) throws ScimException {
         if (scimService == null) {
             return;
