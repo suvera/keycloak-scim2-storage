@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 
-import dev.suvera.keycloak.scim2.storage.jpa.FederatedUserEntity;
 import dev.suvera.scim2.client.Scim2Client;
 import dev.suvera.scim2.client.Scim2ClientBuilder;
 import dev.suvera.scim2.schema.ScimConstant;
@@ -242,7 +241,7 @@ public class ScimClient2 {
         return (val == null ? "" : val);
     }
 
-    public void createUser(SkssUserModel userModel, FederatedUserAdapter federatedUserAdapter) throws ScimException {
+    public void createUser(SkssUserModel userModel) throws ScimException {
         if (scimService == null) {
             return;
         }
@@ -252,11 +251,9 @@ public class ScimClient2 {
 
         user = scimService.createUser(user);
 
-        federatedUserAdapter.setExternalId(user.getId());
-
         userModel.saveExternalUserId(
-                componentModel.getId(),
-                user.getId()
+            componentModel.getId(),
+            user.getId()
         );
         log.info("User record successfully sync'd to SKIM service provider. " + user.getId());
     }

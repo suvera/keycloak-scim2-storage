@@ -2,6 +2,7 @@ package dev.suvera.scim2.client;
 
 import dev.suvera.scim2.schema.ex.ScimException;
 import okhttp3.*;
+import okhttp3.FormBody.Builder;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
@@ -84,13 +85,23 @@ public class Scim2ClientBuilder {
                     if (key.equals(tokenKey)) {
                         OkHttpClient client = new OkHttpClient();
 
-                        RequestBody body = new FormBody.Builder()
-                        .add("grant_type", "password")
-                        .add("username", username)
-                        .add("password", password)
-                        .add("client_id", clientId)
-                        .add("client_secret", clientSecret)
-                        .build();
+                        Builder builder = new FormBody.Builder();
+                        
+                        if (username != null && password != null) {
+                            builder.add("grant_type", "password")
+                            .add("username", username)
+                            .add("password", password);
+                        }
+                        else {
+                            builder.add("grant_type", "client_credentials");
+                        }
+                        
+                        if (clientId != null && clientSecret != null) {
+                            builder.add("client_id", clientId)
+                            .add("client_secret", clientSecret);
+                        }
+                        
+                        RequestBody body = builder.build();
     
                         Request tokenRequest = new Request.Builder()
                         .url(StringUtils.strip(authorityUrl, "/") + "/protocol/openid-connect/token")
@@ -143,7 +154,6 @@ public class Scim2ClientBuilder {
         try {
             token = tokenCache.get(tokenKey);
         } catch (ExecutionException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
 

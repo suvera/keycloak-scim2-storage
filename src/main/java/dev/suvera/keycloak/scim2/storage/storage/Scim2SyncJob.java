@@ -1,6 +1,5 @@
 package dev.suvera.keycloak.scim2.storage.storage;
 
-import dev.suvera.keycloak.scim2.storage.jpa.FederatedUserEntity;
 import dev.suvera.keycloak.scim2.storage.jpa.SkssJobQueue;
 import dev.suvera.scim2.schema.data.user.UserRecord;
 import dev.suvera.scim2.schema.ex.ScimException;
@@ -11,6 +10,7 @@ import org.keycloak.component.ComponentModel;
 import org.keycloak.connections.jpa.JpaConnectionProvider;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
+import org.keycloak.models.UserModel;
 import org.keycloak.models.jpa.RealmAdapter;
 import org.keycloak.models.jpa.UserAdapter;
 import org.keycloak.models.jpa.entities.*;
@@ -100,17 +100,16 @@ public class Scim2SyncJob implements Runnable {
         ScimClient2 scimClient = ScimClient2Factory.getClient(component);
 
         if (job.getAction().equals("userCreate")) {
-            FederatedUserEntity federatedEntity = em.find(FederatedUserEntity.class, job.getUserId());
-            if (federatedEntity == null) {
+            UserModel userModel = session.userLocalStorage().getUserById(realmModel, job.getUserId());
+
+            if (userModel == null) {
                 log.info("could not find user by id: " + job.getUserId());
                 return;
             }
 
-            FederatedUserAdapter federatedUserAdapter = new FederatedUserAdapter(session, realmModel, component, federatedEntity);
-
             UserRecord user = null;
             try {
-                user = scimClient.findUserByUsername(federatedUserAdapter.getUsername());
+                user = scimClient.findUserByUsername(userModel.getUsername());
             } catch (ScimException e) {
                 user = null;
             }
@@ -119,11 +118,11 @@ public class Scim2SyncJob implements Runnable {
                 session,
                 realmModel,
                 component,
-                federatedUserAdapter
+                userModel
             );
 
             if (user == null) {
-                scimClient.createUser(skssUser, federatedUserAdapter);
+                scimClient.createUser(skssUser);
             } else {
                 scimClient.updateUser(skssUser);
             }

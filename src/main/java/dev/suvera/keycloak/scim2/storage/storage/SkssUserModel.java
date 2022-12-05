@@ -76,6 +76,11 @@ public class SkssUserModel extends AbstractUserAdapterFederatedStorage {
         this.username = username;
     }
 
+    @Override
+    public String getId() {
+        return localModel.getId();
+    }
+
     public UserModel getLocalModel() {
         return localModel;
     }
