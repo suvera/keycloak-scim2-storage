@@ -117,4 +117,8 @@ public interface Scim2Client {
     default ListResponse<GroupRecord> searchGroup(SearchRequest request) throws ScimException {
         return search(request, GroupRecord.class, getResourceType(ScimConstant.URN_GROUP));
     }
+
+    default ListResponse<GroupRecord> filterGroup(String property, String value) throws ScimException {
+        return filter(property, value, GroupRecord.class, getResourceType(ScimConstant.URN_GROUP));
+    }
 }

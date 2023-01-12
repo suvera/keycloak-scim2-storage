@@ -1,9 +1,9 @@
 package dev.suvera.keycloak.scim2.storage.jpa;
 
-import org.keycloak.connections.jpa.entityprovider.JpaEntityProvider;
-
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
+
+import org.keycloak.connections.jpa.entityprovider.JpaEntityProvider;
 
 /**
  * author: suvera
@@ -12,7 +12,7 @@ import java.util.List;
 public class SkssEntityProvider implements JpaEntityProvider {
 
     public List<Class<?>> getEntities() {
-        return Collections.singletonList(SkssJobQueue.class);
+        return Arrays.asList(ScimSyncJobQueue.class, FederatedGroupAttributeEntity.class);
     }
 
     public String getChangelogLocation() {

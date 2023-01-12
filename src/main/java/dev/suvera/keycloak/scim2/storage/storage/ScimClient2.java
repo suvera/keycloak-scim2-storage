@@ -1,5 +1,25 @@
 package dev.suvera.keycloak.scim2.storage.storage;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import javax.mail.Session;
+
+import org.apache.commons.lang3.StringUtils;
+import org.jboss.logging.Logger;
+import org.keycloak.component.ComponentModel;
+import org.keycloak.models.GroupModel;
+import org.keycloak.models.RoleModel;
+import org.keycloak.models.UserModel;
+import org.keycloak.models.utils.KeycloakModelUtils;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
@@ -7,28 +27,14 @@ import com.google.common.collect.ImmutableSet;
 import dev.suvera.scim2.client.Scim2Client;
 import dev.suvera.scim2.client.Scim2ClientBuilder;
 import dev.suvera.scim2.schema.ScimConstant;
-import dev.suvera.scim2.schema.data.ExtendedRecord;
 import dev.suvera.scim2.schema.data.group.GroupRecord;
+import dev.suvera.scim2.schema.data.group.GroupRecord.GroupMember;
 import dev.suvera.scim2.schema.data.misc.ListResponse;
-import dev.suvera.scim2.schema.data.misc.MixedListResponse;
-import dev.suvera.scim2.schema.data.misc.SearchRequest;
+import dev.suvera.scim2.schema.data.misc.PatchRequest;
+import dev.suvera.scim2.schema.data.misc.PatchResponse;
 import dev.suvera.scim2.schema.data.user.UserRecord;
+import dev.suvera.scim2.schema.enums.PatchOp;
 import dev.suvera.scim2.schema.ex.ScimException;
-import org.apache.commons.lang3.StringUtils;
-import org.jboss.logging.Logger;
-import org.keycloak.component.ComponentModel;
-import org.keycloak.models.GroupModel;
-import org.keycloak.models.RoleModel;
-
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * author: suvera
@@ -110,7 +116,10 @@ public class ScimClient2 {
         }
     }
 
-    private void buildScimUser(SkssUserModel userModel, UserRecord user) {
+    private UserRecord buildScimUser(ScimUserAdapter userAdapter) {
+        UserModel userModel = userAdapter.getLocalUserModel();
+        UserRecord user = new UserRecord();
+
         user.setUserName(userModel.getUsername());
         //user.setPassword();
 
@@ -144,21 +153,20 @@ public class ScimClient2 {
         user.setActive(userModel.isEnabled());
 
         List<UserRecord.UserGroup> groups = new ArrayList<>();
-        for (GroupModel groupModel : userModel.getGroups()) {
+        userAdapter.getScimGroupsStream().forEach(groupAdapter -> {
             try {
-                createGroup(groupModel);
+                createOrUpdateGroup(groupAdapter);
             } catch (ScimException e) {
                 log.error("", e);
             }
 
             UserRecord.UserGroup grp = new UserRecord.UserGroup();
-            grp.setDisplay(groupModel.getName());
-            grp.setValue(groupModel.getId());
+            grp.setDisplay(groupAdapter.getGroupModel().getName());
+            grp.setValue(groupAdapter.getGroupModel().getId());
             grp.setType("direct");
 
             groups.add(grp);
-        }
-        user.setGroups(groups);
+        });
 
         List<UserRecord.UserRole> roles = new ArrayList<>();
         for (RoleModel roleModel : userModel.getRoleMappings()) {
@@ -229,9 +237,11 @@ public class ScimClient2 {
         } catch (JsonProcessingException e) {
             e.printStackTrace();
         }
+
+        return user;
     }
 
-    private boolean isAttributeNotNull(SkssUserModel userModel, String name) {
+    private boolean isAttributeNotNull(UserModel userModel, String name) {
         String val = userModel.getFirstAttribute(name);
 
         return !(val == null || val.isEmpty() || val.equals("null"));
@@ -241,21 +251,35 @@ public class ScimClient2 {
         return (val == null ? "" : val);
     }
 
-    public void createUser(SkssUserModel userModel) throws ScimException {
+    public void createUser(ScimUserAdapter userModel) throws ScimException {
         if (scimService == null) {
             return;
         }
         
-        UserRecord user = new UserRecord();
-        buildScimUser(userModel, user);
+        UserRecord scimUser = buildScimUser(userModel);
+        UserRecord createdUser = scimService.createUser(scimUser);
 
-        user = scimService.createUser(user);
+        userModel.setExternalId(createdUser.getId());
+        log.info("User record successfully sync'd to SKIM service provider. " + createdUser.getId());
+    }
 
-        userModel.saveExternalUserId(
-            componentModel.getId(),
-            user.getId()
-        );
-        log.info("User record successfully sync'd to SKIM service provider. " + user.getId());
+    public void createOrUpdateUser(ScimUserAdapter scimUser) throws ScimException {
+        if (scimService == null) {
+            return;
+        }
+
+        UserRecord user = null;
+        try {
+            user = findUserByUsername(scimUser.getUsername());
+        } catch (ScimException e) {
+            user = null;
+        }
+
+        if (user == null) {
+            createUser(scimUser);
+        } else {
+            updateUser(scimUser, user.getId());
+        }
     }
 
     public UserRecord findUserByUsername(String username) throws ScimException {
@@ -267,15 +291,18 @@ public class ScimClient2 {
 
         return users.getResources().stream().findFirst().orElse(null);
     }
- 
-    public void updateUser(SkssUserModel userModel) throws ScimException {
-        if (scimService == null) {
-            return;
-        }
-        String id = userModel.getExternalUserId(componentModel.getId());
 
-        if (id == null) {
-            log.info("User user does not exist in the SCIM2 provider " + userModel.getUsername());
+    private void updateUser(ScimUserAdapter userModel, String externalId) throws ScimException {
+        UserRecord scimUser = buildScimUser(userModel);
+        scimUser.setId(externalId);
+
+        UserRecord user = scimService.replaceUser(externalId, scimUser);
+
+        userModel.setExternalId(user.getId());
+    }
+ 
+    public void updateUser(ScimUserAdapter userModel) throws ScimException {
+        if (scimService == null) {
             return;
         }
 
@@ -284,21 +311,18 @@ public class ScimClient2 {
             return;
         }
 
-        buildScimUser(userModel, user);
-
-        user = scimService.replaceUser(id, user);
-
-        userModel.saveExternalUserId(
-                componentModel.getId(),
-                user.getId()
-        );
+        updateUser(userModel, user.getId());
     }
 
-    public UserRecord getUser(SkssUserModel userModel) throws ScimException {
-        String id = userModel.getExternalUserId(componentModel.getId());
+    public UserRecord getUser(ScimUserAdapter userModel) throws ScimException {
+        if (scimService == null) {
+            return null;
+        }
+
+        String id = userModel.getExternalId();
 
         if (id == null) {
-            log.info("User user does not exist in the SCIM2 provider " + userModel.getUsername());
+            log.infof("User with %s does not exist in the SCIM provider.", userModel.getUsername());
             return null;
         }
 
@@ -314,55 +338,122 @@ public class ScimClient2 {
         }
     }
 
-    public void createGroup(GroupModel groupModel) throws ScimException {
+    public void createOrUpdateGroup(ScimGroupAdapter scimGroup) throws ScimException {
         if (scimService == null) {
             return;
         }
 
-        if (groupModel.getFirstAttribute("skss_id_" + componentModel.getId()) != null) {
-            return;
+        GroupRecord group = null;
+        try {
+            group = findGroupByGroupName(scimGroup.getGroupModel().getName());
+        } catch (ScimException e) {
+            group = null;
         }
 
-        GroupRecord grp = new GroupRecord();
-        grp.setDisplayName(groupModel.getName());
-
-        grp = scimService.createGroup(grp);
-
-        groupModel.setSingleAttribute(
-                "skss_id_" + componentModel.getId(),
-                grp.getId()
-        );
+        if (group == null) {
+            createGroup(scimGroup);
+        } else {
+            updateGroup(scimGroup, group);
+        }
     }
 
-    public void updateGroup(GroupModel groupModel) throws ScimException {
+    public GroupRecord findGroupByGroupName(String name) throws ScimException {
+        if (scimService == null) {
+            return null;
+        }
+
+        ListResponse<GroupRecord> users = scimService.filterGroup("displayName", name);
+
+        return users.getResources().stream().findFirst().orElse(null);
+    }
+
+    public void createGroup(ScimGroupAdapter groupModel) throws ScimException {
+         if (scimService == null) {
+            return;
+        }
+
+        GroupRecord groupRecord = new GroupRecord();
+        groupRecord.setDisplayName(groupModel.getGroupModel().getName());
+
+        groupRecord = scimService.createGroup(groupRecord); 
+
+        groupModel.setExternalId(groupRecord.getId());
+    }
+
+    private void updateGroup(ScimGroupAdapter groupModel, GroupRecord groupRecord) throws ScimException {
+        groupRecord.setDisplayName(groupModel.getGroupModel().getName());
+
+        groupRecord = scimService.replaceGroup(groupRecord.getId(), groupRecord); 
+
+        groupModel.setExternalId(groupRecord.getId());
+    }
+
+    public void updateGroup(ScimGroupAdapter groupModel) throws ScimException {
         if (scimService == null) {
             return;
         }
 
-        String id = groupModel.getFirstAttribute("skss_id_" + componentModel.getId());
+        String id = groupModel.getExternalId();
 
         if (id == null) {
-            log.info("User user does not exist in the SCIM2 provider " + groupModel.getName());
+            log.infof("Group %s does not exist in the SCIM2 provider", groupModel.getGroupModel().getName());
             return;
         }
 
         GroupRecord grp = scimService.readGroup(id);
-
-        grp = scimService.replaceGroup(id, grp);
-        grp.setDisplayName(groupModel.getName());
-
-        groupModel.setSingleAttribute(
-                "skss_id_" + componentModel.getId(),
-                grp.getId()
-        );
+        updateGroup(groupModel, grp);
     }
 
-    public void deleteGroup(GroupModel groupModel) throws ScimException {
+    public boolean joinGroup(ScimGroupAdapter groupModel, ScimUserAdapter userModel) throws ScimException {
+        if (scimService == null) {
+            return false;
+        }
+
+        String externalUserId = userModel.getExternalId();
+        String externalGroupId = groupModel.getExternalId();
+
+        if (externalUserId != null && externalGroupId != null) {
+            PatchRequest<GroupRecord> patchRequest = new PatchRequest<>(GroupRecord.class);
+            GroupMember groupMember = new GroupMember();
+            groupMember.setDisplay(userModel.getUsername());
+            groupMember.setValue(userModel.getExternalId());
+            patchRequest.addOperation(PatchOp.ADD, "members", Arrays.asList(groupMember));
+    
+            PatchResponse<GroupRecord> response = scimService.patchGroup(externalGroupId, patchRequest);
+            return response.getStatus() == 200;
+        }
+
+        return false;
+    }
+
+    public boolean leaveGroup(ScimGroupAdapter groupModel, ScimUserAdapter userModel) throws ScimException {
+        if (scimService == null) {
+            return false;
+        }
+
+        String externalUserId = userModel.getExternalId();
+        String externalGroupId = groupModel.getExternalId();
+
+        if (externalUserId != null && externalGroupId != null) {
+            PatchRequest<GroupRecord> patchRequest = new PatchRequest<>(GroupRecord.class);
+
+            patchRequest.addOperation(
+                PatchOp.REMOVE,
+                String.format("members[value eq \"%s\"]", externalUserId),
+                new GroupMember());
+
+            PatchResponse<GroupRecord> response = scimService.patchGroup(externalGroupId, patchRequest);
+            return response.getStatus() == 200;
+        }
+
+        return false;
+    }
+
+    public void deleteGroup(String id) throws ScimException {
         if (scimService == null) {
             return;
         }
 
-        String id = groupModel.getFirstAttribute("skss_id_" + componentModel.getId());
         if (id != null) {
             scimService.deleteGroup(id);
         }

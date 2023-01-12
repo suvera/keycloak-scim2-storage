@@ -1,15 +1,10 @@
 package dev.suvera.keycloak.scim2.storage.storage;
 
-import dev.suvera.keycloak.scim2.storage.jpa.SkssJobQueue;
 import org.jboss.logging.Logger;
 import org.keycloak.component.ComponentModel;
-import org.keycloak.connections.jpa.JpaConnectionProvider;
 import org.keycloak.models.*;
-import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.storage.UserStorageProvider;
 import org.keycloak.storage.user.UserRegistrationProvider;
-
-import javax.persistence.EntityManager;
 
 /**
  * author: suvera
@@ -19,12 +14,12 @@ public class SkssStorageProvider implements UserStorageProvider, UserRegistratio
     private static final Logger log = Logger.getLogger(SkssStorageProvider.class);
     private final KeycloakSession session;
     private final ComponentModel model;
-    private final EntityManager em;
+    private JobEnqueuer jobQueue;
 
-    public SkssStorageProvider(KeycloakSession session, ComponentModel model) {
+    public SkssStorageProvider(KeycloakSession session, ComponentModel model, JobEnqueuer jobQueue) {
         this.session = session;
         this.model = model;
-        em = session.getProvider(JpaConnectionProvider.class).getEntityManager();
+        this.jobQueue = jobQueue;
     }
 
     @Override
@@ -36,7 +31,6 @@ public class SkssStorageProvider implements UserStorageProvider, UserRegistratio
      */
     @Override
     public void preRemove(RealmModel realm) {
-        // TODO:
     }
 
     /**
@@ -44,14 +38,6 @@ public class SkssStorageProvider implements UserStorageProvider, UserRegistratio
      */
     @Override
     public void preRemove(RealmModel realm, GroupModel group) {
-        /*if (scimClient == null) {
-            return;
-        }
-        try {
-            scimClient.deleteGroup(group);
-        } catch (ScimException e) {
-            log.error("", e);
-        }*/
     }
 
     /**
@@ -59,7 +45,6 @@ public class SkssStorageProvider implements UserStorageProvider, UserRegistratio
      */
     @Override
     public void preRemove(RealmModel realm, RoleModel role) {
-        // TODO:
     }
 
     /**
@@ -69,15 +54,7 @@ public class SkssStorageProvider implements UserStorageProvider, UserRegistratio
     public UserModel addUser(RealmModel realmModel, String username) {
         UserModel localUser = createAdapter(realmModel, username);
 
-        SkssJobQueue entity = new SkssJobQueue();
-        entity.setId(KeycloakModelUtils.generateId());
-        entity.setAction("userCreate");
-        entity.setRealmId(realmModel.getName());
-        entity.setComponentId(model.getId());
-        entity.setUserId(localUser.getId());
-        entity.setProcessed(0);
-        em.persist(entity);
-        log.info(username + " scheduled to be added on SCIM");
+        jobQueue.enqueueUserCreateJob(realmModel.getName(), model.getId(), localUser.getId());
 
         return localUser;
     }
@@ -98,22 +75,18 @@ public class SkssStorageProvider implements UserStorageProvider, UserRegistratio
      */
     @Override
     public boolean removeUser(RealmModel realmModel, UserModel userModel) {
-        // if user has been synchronized to SCIM server it'll have this external id entry
-        if (userModel.getFirstAttribute("skss_id_" + model.getId()) != null) {
-            SkssJobQueue entity = new SkssJobQueue();
-            entity.setId(KeycloakModelUtils.generateId());
-            entity.setAction("userDelete");
-            entity.setRealmId(realmModel.getId());
-            entity.setComponentId(model.getId());
-            entity.setUserId(userModel.getId());
-            entity.setProcessed(0);
-            entity.setExternalId(userModel.getFirstAttribute("skss_id_" + model.getId()));
-            em.persist(entity);
-            em.flush();
-            log.info(userModel.getUsername() + " scheduled to be removed on SCIM");
+        log.info("Removing user " + userModel.getUsername());
+        
+        ScimUserAdapter scimUser = new ScimUserAdapter(session, realmModel, model, userModel);
+        if (scimUser.getExternalId() != null) {
+            jobQueue.enqueueUserDeleteJob(
+                realmModel.getId(),
+                model.getId(),
+                userModel.getId(),
+                scimUser.getExternalId());
+            scimUser.removeExternalId();
         }
 
-        log.info("Removing user " + userModel.getUsername());
-        return session.userLocalStorage().removeUser(realmModel, userModel);
+        return true;
     }
 }

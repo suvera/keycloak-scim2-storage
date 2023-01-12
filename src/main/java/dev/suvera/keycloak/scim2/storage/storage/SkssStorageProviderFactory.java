@@ -1,7 +1,8 @@
 package dev.suvera.keycloak.scim2.storage.storage;
 
 import dev.suvera.scim2.schema.ex.ScimException;
-import org.keycloak.Config;
+
+import org.jboss.logging.Logger;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.component.ComponentValidationException;
 import org.keycloak.models.KeycloakSession;
@@ -10,17 +11,22 @@ import org.keycloak.models.RealmModel;
 import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.provider.ProviderConfigurationBuilder;
 import org.keycloak.storage.UserStorageProviderFactory;
+import org.keycloak.storage.UserStorageProviderModel;
+import org.keycloak.storage.user.ImportSynchronization;
+import org.keycloak.storage.user.SynchronizationResult;
 
+import java.util.Date;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * author: suvera
  * date: 10/15/2020 8:54 AM
  */
-public class SkssStorageProviderFactory implements UserStorageProviderFactory<SkssStorageProvider> {
+public class SkssStorageProviderFactory implements UserStorageProviderFactory<SkssStorageProvider>, ImportSynchronization {
+    private static final Logger log = Logger.getLogger(SkssStorageProvider.class);
     protected static final List<ProviderConfigProperty> configMetadata;
+
+    public static final String PROVIDER_ID = "skss-scim2-storage";
 
     static {
         configMetadata = ProviderConfigurationBuilder.create()
@@ -70,8 +76,7 @@ public class SkssStorageProviderFactory implements UserStorageProviderFactory<Sk
                 .build();
     }
 
-    private ExecutorService backendService;
-    private volatile boolean jobStarted = false;
+    private ScimSyncRunner syncRunner;
 
     @Override
     public List<ProviderConfigProperty> getConfigProperties() {
@@ -98,39 +103,23 @@ public class SkssStorageProviderFactory implements UserStorageProviderFactory<Sk
 
     @Override
     public SkssStorageProvider create(KeycloakSession keycloakSession, ComponentModel componentModel) {
-        //startBackendJob(keycloakSession);
-        return new SkssStorageProvider(keycloakSession, componentModel);
-    }
-
-    private synchronized void startBackendJob(KeycloakSession session) {
-        if (jobStarted) {
-            return;
-        }
-
-        jobStarted = true;
-
-        backendService.execute(
-                new Scim2SyncJob(session)
-        );
+        JobEnqueuer jobQueueEnqueuer = new JobEnqueuer(keycloakSession);
+        return new SkssStorageProvider(keycloakSession, componentModel, jobQueueEnqueuer);
     }
 
     @Override
     public String getId() {
-        return "skss-scim2-storage";
-    }
-
-    @Override
-    public void init(Config.Scope config) {
-        backendService = Executors.newSingleThreadExecutor();
+        return PROVIDER_ID;
     }
 
     @Override
     public void close() {
-        backendService.shutdown();
+        syncRunner.stop();
     }
 
     @Override
     public void postInit(KeycloakSessionFactory factory) {
-        startBackendJob(factory.create());
+        syncRunner = new ScimSyncRunner(factory);
+        syncRunner.run();
     }
 }
