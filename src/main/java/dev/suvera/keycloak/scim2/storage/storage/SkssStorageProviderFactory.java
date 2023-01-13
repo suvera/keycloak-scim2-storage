@@ -11,18 +11,13 @@ import org.keycloak.models.RealmModel;
 import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.provider.ProviderConfigurationBuilder;
 import org.keycloak.storage.UserStorageProviderFactory;
-import org.keycloak.storage.UserStorageProviderModel;
-import org.keycloak.storage.user.ImportSynchronization;
-import org.keycloak.storage.user.SynchronizationResult;
-
-import java.util.Date;
 import java.util.List;
 
 /**
  * author: suvera
  * date: 10/15/2020 8:54 AM
  */
-public class SkssStorageProviderFactory implements UserStorageProviderFactory<SkssStorageProvider>, ImportSynchronization {
+public class SkssStorageProviderFactory implements UserStorageProviderFactory<SkssStorageProvider> {
     private static final Logger log = Logger.getLogger(SkssStorageProvider.class);
     protected static final List<ProviderConfigProperty> configMetadata;
 
