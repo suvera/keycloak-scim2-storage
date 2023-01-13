@@ -29,7 +29,7 @@ public class ScimSyncRunner {
     }
 
     public void run() {
-        timer.scheduleTask(this::performSync, 15000, TASK_NAME);
+        timer.scheduleTask(this::performSync, 30000, TASK_NAME);
     }
 
     public void stop() {

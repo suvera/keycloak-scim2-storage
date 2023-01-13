@@ -440,7 +440,7 @@ public class ScimClient2 {
             patchRequest.addOperation(
                 PatchOp.REMOVE,
                 String.format("members[value eq \"%s\"]", externalUserId),
-                new GroupMember());
+                null);
 
             PatchResponse<GroupRecord> response = scimService.patchGroup(externalGroupId, patchRequest);
             return response.getStatus() == 200;
