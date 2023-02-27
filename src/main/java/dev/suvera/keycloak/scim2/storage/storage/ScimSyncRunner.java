@@ -1,48 +1,91 @@
 package dev.suvera.keycloak.scim2.storage.storage;
 
+import java.util.Date;
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import javax.persistence.EntityManager;
 
-import org.jboss.logging.Logger;
+import org.keycloak.component.ComponentModel;
 import org.keycloak.connections.jpa.JpaConnectionProvider;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
+import org.keycloak.models.RealmModel;
+import org.keycloak.models.UserModel;
 import org.keycloak.models.utils.KeycloakModelUtils;
-import org.keycloak.timer.TimerProvider;
+import org.keycloak.storage.user.SynchronizationResult;
 
 import dev.suvera.keycloak.scim2.storage.jpa.ScimSyncJobQueue;
-import dev.suvera.scim2.schema.ex.ScimException;
 
 public class ScimSyncRunner {
-    private static final String TASK_NAME = "ScimSync";
-    private static final Logger log = Logger.getLogger(ScimSyncJob.class);
-
     private KeycloakSessionFactory sessionFactory;
     private KeycloakSession session;
-    private TimerProvider timer;
+    private ComponentModel model;
 
-    public ScimSyncRunner(KeycloakSessionFactory sessionFactory) {
+    public ScimSyncRunner(KeycloakSessionFactory sessionFactory, ComponentModel model) {
         this.sessionFactory = sessionFactory;
+        this.model = model;
         session = sessionFactory.create();
-        timer = session.getProvider(TimerProvider.class);
     }
 
-    public void run() {
-        timer.scheduleTask(this::performSync, 30000, TASK_NAME);
+    public SynchronizationResult syncAll(String realmId) {
+        SynchronizationResult result = new SynchronizationResult();
+
+        callSyncJobs(session, result);
+
+        KeycloakModelUtils.runJobInTransaction(sessionFactory, kcSession -> {
+            kcSession.getContext().setRealm(kcSession.realms().getRealm(realmId));
+
+            List<String> ldapComponentModels = ComponentModelUtils
+                    .getLDAPComponentsWithScimEventsEnabled(sessionFactory, realmId)
+                    .collect(Collectors.toUnmodifiableList());
+
+            RealmModel realm = kcSession.realms().getRealm(realmId);
+            Stream<UserModel> users = kcSession
+                    .userLocalStorage()
+                    .getUsersStream(realm)
+                    .filter(u -> u.getFederationLink() != null
+                            && (u.getFederationLink().equals(model.getId()))
+                            || ldapComponentModels.stream().anyMatch(l -> l.equals(u.getFederationLink())));
+
+            users.forEach(user -> {
+                ScimSyncJob sync = new ScimSyncJob(kcSession);
+
+                ScimSyncJobQueue job = new ScimSyncJobQueue();
+
+                String action = ScimSyncJob.CREATE_USER;
+                if (!user.getFederationLink().equals(model.getId())) {
+                    action = ScimSyncJob.CREATE_USER_EXTERNAL;
+                }
+
+                job.setAction(action);
+                job.setId(KeycloakModelUtils.generateId());
+                job.setRealmId(realm.getId());
+                job.setComponentId(model.getId());
+                job.setUserId(user.getId());
+
+                sync.execute(job, realm, model, user, result);
+            });
+        });
+
+        return result;
     }
 
-    public void stop() {
-        session.close();
-        timer.cancelTask(TASK_NAME);
+    public SynchronizationResult syncSince(Date lastSync, String realmId) {
+        SynchronizationResult result = new SynchronizationResult();
+
+        callSyncJobs(session, result);
+
+        return result;
     }
 
-    private void performSync(KeycloakSession session) {
+    private void callSyncJobs(KeycloakSession session, SynchronizationResult result) {
         EntityManager em = session.getProvider(JpaConnectionProvider.class).getEntityManager();
 
         Stream<ScimSyncJobQueue> jobs = em.createNamedQuery("getPendingJobs", ScimSyncJobQueue.class)
-            .setMaxResults(50)
-            .getResultStream();
+                .setMaxResults(1000)
+                .getResultStream();
 
         if (jobs == null) {
             return;
@@ -51,16 +94,7 @@ public class ScimSyncRunner {
         jobs.forEach(job -> {
             KeycloakModelUtils.runJobInTransaction(sessionFactory, kcSession -> {
                 ScimSyncJob sync = new ScimSyncJob(kcSession);
-    
-                log.info("JOB: " + job);
-    
-                try {
-                    sync.executeJob(job);
-                    sync.deleteJob(job);
-                } catch (ScimException e) {
-                    sync.increaseRetry(job);
-                    log.error(e.getMessage(), e);
-                }
+                sync.execute(job, result);
             });
         });
     }

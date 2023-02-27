@@ -11,14 +11,19 @@ import org.keycloak.models.RealmModel;
 import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.provider.ProviderConfigurationBuilder;
 import org.keycloak.storage.UserStorageProviderFactory;
+import org.keycloak.storage.UserStorageProviderModel;
+import org.keycloak.storage.user.ImportSynchronization;
+import org.keycloak.storage.user.SynchronizationResult;
+
+import java.util.Date;
 import java.util.List;
 
 /**
  * author: suvera
  * date: 10/15/2020 8:54 AM
  */
-public class SkssStorageProviderFactory implements UserStorageProviderFactory<SkssStorageProvider> {
-    private static final Logger log = Logger.getLogger(SkssStorageProvider.class);
+public class SkssStorageProviderFactory implements UserStorageProviderFactory<SkssStorageProvider>, ImportSynchronization {
+    private static final Logger log = Logger.getLogger(SkssStorageProviderFactory.class);
     protected static final List<ProviderConfigProperty> configMetadata;
 
     public static final String PROVIDER_ID = "skss-scim2-storage";
@@ -71,7 +76,7 @@ public class SkssStorageProviderFactory implements UserStorageProviderFactory<Sk
                 .build();
     }
 
-    private ScimSyncRunner syncRunner;
+    //private ScimSyncRunner syncRunner;
 
     @Override
     public List<ProviderConfigProperty> getConfigProperties() {
@@ -98,8 +103,7 @@ public class SkssStorageProviderFactory implements UserStorageProviderFactory<Sk
 
     @Override
     public SkssStorageProvider create(KeycloakSession keycloakSession, ComponentModel componentModel) {
-        JobEnqueuer jobQueueEnqueuer = new JobEnqueuer(keycloakSession);
-        return new SkssStorageProvider(keycloakSession, componentModel, jobQueueEnqueuer);
+        return new SkssStorageProvider(keycloakSession, componentModel, JobEnqueuerFactory.create(keycloakSession));
     }
 
     @Override
@@ -108,13 +112,17 @@ public class SkssStorageProviderFactory implements UserStorageProviderFactory<Sk
     }
 
     @Override
-    public void close() {
-        syncRunner.stop();
+    public SynchronizationResult sync(KeycloakSessionFactory sessionFactory, String realmId,
+            UserStorageProviderModel model) {
+        ScimSyncRunner syncRunner = new ScimSyncRunner(sessionFactory, model);
+        return syncRunner.syncAll(realmId);
     }
 
     @Override
-    public void postInit(KeycloakSessionFactory factory) {
-        syncRunner = new ScimSyncRunner(factory);
-        syncRunner.run();
+    public SynchronizationResult syncSince(Date lastSync, KeycloakSessionFactory sessionFactory, String realmId,
+            UserStorageProviderModel model) {
+        
+        ScimSyncRunner syncRunner = new ScimSyncRunner(sessionFactory, model);
+        return syncRunner.syncSince(lastSync, realmId);
     }
 }

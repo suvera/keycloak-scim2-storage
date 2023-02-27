@@ -1,5 +1,6 @@
 package dev.suvera.keycloak.scim2.storage.storage;
 
+import java.util.Date;
 import java.util.stream.Stream;
 
 import org.keycloak.component.ComponentModel;
@@ -9,8 +10,9 @@ import org.keycloak.models.UserModel;
 import org.keycloak.storage.adapter.AbstractUserAdapterFederatedStorage;
 
 public class ScimUserAdapter extends AbstractUserAdapterFederatedStorage {
-
     private static final String EXTERNAL_ID_ATTRIBUTE = "EXTERNAL_ID";
+    private static final String TIMESTAMP_ATTRIBUTE = "LAST_SYNC_TIME";
+
     private UserModel localUser;
 
     public ScimUserAdapter(KeycloakSession session, RealmModel realm, ComponentModel storageProviderModel, UserModel localUser) {
@@ -30,6 +32,9 @@ public class ScimUserAdapter extends AbstractUserAdapterFederatedStorage {
 
     public void setExternalId(String externalId) {
         setSingleAttribute(EXTERNAL_ID_ATTRIBUTE, externalId);
+
+        Date date = new Date();
+        setSingleAttribute(TIMESTAMP_ATTRIBUTE, String.valueOf(date.getTime()));
     }
 
     public String getExternalId() {

@@ -31,7 +31,7 @@ public class ScimEventListener implements EventListenerProvider {
         if (event.getType() == EventType.UPDATE_PROFILE) {
             log.infof("Handling event: %s", event.getType());
 
-            jobQueue.enqueueUserCreateJob(event.getRealmId(), event.getUserId());
+            jobQueue.enqueueUserUpdateJob(event.getRealmId(), event.getUserId());
         }
     }
 

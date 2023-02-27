@@ -181,6 +181,12 @@
             <version>23.0.0</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.keycloak</groupId>
+            <artifactId>keycloak-ldap-federation</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- <dependency>
             <groupId>com.github.suvera.scim2-sdk</groupId>
             <artifactId>scim2-sdk-schema</artifactId>

@@ -19,6 +19,7 @@ import org.keycloak.models.GroupModel;
 import org.keycloak.models.RoleModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.utils.KeycloakModelUtils;
+import org.keycloak.storage.user.SynchronizationResult;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -263,7 +264,7 @@ public class ScimClient2 {
         log.info("User record successfully sync'd to SKIM service provider. " + createdUser.getId());
     }
 
-    public void createOrUpdateUser(ScimUserAdapter scimUser) throws ScimException {
+    public void createOrUpdateUser(ScimUserAdapter scimUser, SynchronizationResult result) throws ScimException {
         if (scimService == null) {
             return;
         }
@@ -277,8 +278,10 @@ public class ScimClient2 {
 
         if (user == null) {
             createUser(scimUser);
+            result.increaseAdded();
         } else {
             updateUser(scimUser, user.getId());
+            result.increaseUpdated();
         }
     }
 

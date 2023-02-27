@@ -2,19 +2,19 @@ package dev.suvera.keycloak.scim2.storage.storage;
 
 import java.util.List;
 import java.util.stream.Collectors;
+
 import javax.persistence.EntityManager;
+
 import org.jboss.logging.Logger;
-import org.keycloak.common.util.MultivaluedHashMap;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.connections.jpa.JpaConnectionProvider;
 import org.keycloak.models.GroupModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
-import org.keycloak.models.jpa.RealmAdapter;
-import org.keycloak.models.jpa.entities.ComponentConfigEntity;
 import org.keycloak.models.jpa.entities.ComponentEntity;
-import org.keycloak.models.jpa.entities.RealmEntity;
+import org.keycloak.storage.user.SynchronizationResult;
+
 import dev.suvera.keycloak.scim2.storage.jpa.ScimSyncJobQueue;
 import dev.suvera.scim2.schema.ex.ScimException;
 
@@ -24,6 +24,7 @@ import dev.suvera.scim2.schema.ex.ScimException;
  */
 public class ScimSyncJob {
     public static final String CREATE_USER = "userCreate";
+    public static final String CREATE_USER_EXTERNAL = "userCreateExternal";
     public static final String DELETE_USER = "userDelete";
     public static final String CREATE_GROUP = "groupCreate";
     public static final String UPDATE_GROUP = "groupUpdate";
@@ -39,50 +40,84 @@ public class ScimSyncJob {
     public ScimSyncJob(KeycloakSession session) {
         this.session = session;
         em = session.getProvider(JpaConnectionProvider.class).getEntityManager();
-        enquerer = new JobEnqueuer(em);
+        enquerer = JobEnqueuerFactory.create(session);
     }
 
-    private RealmModel getRealmModel(String realmId) {
-        String sql = "select u from RealmEntity u where u.name = :realmId";
-
-        RealmEntity realm = em.createQuery(sql, RealmEntity.class)
-                .setParameter("realmId", realmId)
-                .getSingleResult();
-
-        return new RealmAdapter(session, em, realm);
+    public void execute(ScimSyncJobQueue job) {
+        execute(job, null, null, null, null, null);
     }
 
-    public void executeJob(ScimSyncJobQueue job) throws ScimException {
-        RealmModel realmModel = getRealmModel(job.getRealmId());
+    public void execute(ScimSyncJobQueue job, RealmModel realmModel, ComponentModel componentModel,
+            UserModel userModel) {
+        execute(job, realmModel, componentModel, userModel, null, null);
+    }
+
+    public void execute(ScimSyncJobQueue job, RealmModel realmModel, ComponentModel componentModel) {
+        execute(job, realmModel, componentModel, null, null, null);
+    }
+
+    public void execute(ScimSyncJobQueue job, RealmModel realmModel, ComponentModel componentModel,
+            UserModel userModel, SynchronizationResult result) {
+        execute(job, realmModel, componentModel, userModel, null, result);
+    }
+
+    public void execute(ScimSyncJobQueue job, RealmModel realmModel, ComponentModel componentModel,
+            UserModel userModel, GroupModel groupModel) {
+        execute(job, realmModel, componentModel, userModel, groupModel, null);
+    }
+
+    public void execute(ScimSyncJobQueue job, SynchronizationResult result) {
+        execute(job, null, null, null, result);
+    }
+
+    public void execute(ScimSyncJobQueue job, RealmModel realmModel, ComponentModel componentModel, UserModel userModel,
+            GroupModel groupModel, SynchronizationResult result) {
+        try {
+            executeJob(job, realmModel, componentModel, userModel, groupModel, result);
+            deleteJob(job);
+        } catch (ScimException e) {
+            increaseRetry(job);
+            log.error(e.getMessage(), e);
+            if (result != null) {
+                result.increaseFailed();
+            }
+        }
+    }
+
+    private void executeJob(ScimSyncJobQueue job, RealmModel realmModel, ComponentModel componentModel,
+            UserModel userModel, GroupModel groupModel, SynchronizationResult result) throws ScimException {
+        if (realmModel == null) {
+            session.getContext().setRealm(session.realms().getRealm(job.getRealmId()));
+            realmModel = session.realms().getRealm(job.getRealmId());
+        }
 
         if (job.getAction().equals(CREATE_USER)) {
-           createUser(realmModel, job);
-        }
-        else if (job.getAction().equals(DELETE_USER)) {
-            deleteUser(realmModel, job);
-        }
-        else if (job.getAction().equals(CREATE_GROUP)) {
-            createOrUpdateGroup(realmModel, job, false);
-        }
-        else if (job.getAction().equals(UPDATE_GROUP)) {
-            createOrUpdateGroup(realmModel, job, true);
-        }
-        else if (job.getAction().equals(DELETE_GROUP)) {
+            createUser(realmModel, job, componentModel, userModel, result);
+        } else if (job.getAction().equals(CREATE_USER_EXTERNAL)) {
+            createUserExternal(realmModel, job, userModel, result);
+        } else if (job.getAction().equals(DELETE_USER)) {
+            deleteUser(realmModel, job, componentModel);
+            if (result != null) {
+                result.increaseRemoved();
+            }
+        } else if (job.getAction().equals(CREATE_GROUP)) {
+            createOrUpdateGroup(realmModel, job, componentModel, groupModel);
+        } else if (job.getAction().equals(UPDATE_GROUP)) {
+            updateGroupName(realmModel, job);
+        } else if (job.getAction().equals(DELETE_GROUP)) {
             deleteGroup(realmModel, job);
-        }
-        else if (job.getAction().equals(JOIN_GROUP)) {
-            joinGroup(realmModel, job);
-        }
-        else if (job.getAction().equals(LEAVE_GROUP)) {
-            leaveGroup(realmModel, job);
+        } else if (job.getAction().equals(JOIN_GROUP)) {
+            joinGroup(realmModel, job, componentModel, userModel, groupModel);
+        } else if (job.getAction().equals(LEAVE_GROUP)) {
+            leaveGroup(realmModel, job, componentModel, userModel, groupModel);
         }
     }
 
-    public void deleteJob(ScimSyncJobQueue job) {
+    private void deleteJob(ScimSyncJobQueue job) {
         em.remove(em.contains(job) ? job : em.merge(job));
     }
 
-    public void increaseRetry(ScimSyncJobQueue job) {
+    private void increaseRetry(ScimSyncJobQueue job) {
         if (!em.contains(job)) {
             em.merge(job);
         }
@@ -93,8 +128,36 @@ public class ScimSyncJob {
         log.debugf("Increased retry count for job %s", job.getId());
     }
 
-    private void createUser(RealmModel realmModel, ScimSyncJobQueue job) throws ScimException {
-        UserModel userModel = session.userLocalStorage().getUserById(realmModel, job.getUserId());
+    private void createUserExternal(RealmModel realmModel, ScimSyncJobQueue job, UserModel userModel, SynchronizationResult result)
+            throws ScimException {
+        if (userModel == null) {
+            userModel = session.userLocalStorage().getUserById(realmModel, job.getUserId());
+        }
+
+        if (userModel == null) {
+            log.info("could not find user by id: " + job.getUserId());
+            return;
+        }
+
+        ComponentEntity componentEntity = ComponentModelUtils
+                .getComponents(session.getKeycloakSessionFactory(), realmModel.getId(),
+                        SkssStorageProviderFactory.PROVIDER_ID)
+                .findFirst()
+                .orElse(null);
+
+        if (componentEntity == null) {
+            log.info("Cannot find appropriate component.");
+            return;
+        }
+
+        createUser(realmModel, realmModel.getComponent(componentEntity.getId()), userModel, result);
+    }
+
+    private void createUser(RealmModel realmModel, ScimSyncJobQueue job, ComponentModel componentModel,
+            UserModel userModel, SynchronizationResult result) throws ScimException {
+        if (userModel == null) {
+            userModel = session.userLocalStorage().getUserById(realmModel, job.getUserId());
+        }
 
         if (userModel == null) {
             log.info("could not find user by id: " + job.getUserId());
@@ -107,172 +170,183 @@ public class ScimSyncJob {
         }
 
         if (job.getComponentId() != null && !job.getComponentId().equals(userModel.getFederationLink())) {
-            log.infof("User with username %s is not managed by federation plugin with id %s.", userModel.getUsername(), job.getComponentId());
+            log.infof("User with username %s is not managed by federation plugin with id %s.", userModel.getUsername(),
+                    job.getComponentId());
             return;
         }
 
-        ComponentModel component = getComponent(userModel.getFederationLink(), realmModel.getId());
-
-        if (!component.getProviderId().equals(SkssStorageProviderFactory.PROVIDER_ID)) {
-            log.info("Federated user component is not of the correct type.");
-            return;
-        }
-        
-        ScimClient2 scimClient = ScimClient2Factory.getClient(component);
-        
-        ScimUserAdapter scimUserAdapter = new ScimUserAdapter(session, realmModel, component, userModel);
-        scimClient.createOrUpdateUser(scimUserAdapter);
-    }
-
-    private void deleteUser(RealmModel realmModel, ScimSyncJobQueue job) throws ScimException {
-        if (job.getComponentId() == null) {
-            log.info("Component id is needed to delete user");
-            return;
+        if (componentModel == null) {
+            componentModel = realmModel.getComponent(userModel.getFederationLink());
         }
 
-        ComponentModel component = getComponent(job.getComponentId(), realmModel.getId());
-
-        if (!component.getProviderId().equals(SkssStorageProviderFactory.PROVIDER_ID)) {
+        if (!componentModel.getProviderId().equals(SkssStorageProviderFactory.PROVIDER_ID)) {
             log.info("Federated user component is not of the correct type.");
             return;
         }
 
-        ScimClient2 scimClient = ScimClient2Factory.getClient(component);
-        scimClient.deleteUser(job.getExternalId());
+        createUser(realmModel, componentModel, userModel, result);
     }
 
-    private void createOrUpdateGroup(RealmModel realmModel, ScimSyncJobQueue job, boolean updateOnly) throws ScimException {
-        for (ComponentModel component : getComponents(SkssStorageProviderFactory.PROVIDER_ID)) {
-            ScimClient2 scimClient = ScimClient2Factory.getClient(component);
+    private void createUser(RealmModel realmModel, ComponentModel componentModel, UserModel userModel, SynchronizationResult result)
+            throws ScimException {
+        ScimClient2 scimClient = ScimClient2Factory.getClient(componentModel);
 
-            GroupModel groupModel = session.groupLocalStorage().getGroupById(realmModel, job.getGroupId());
+        if (result != null) {
+            List<GroupModel> userGroups = userModel.getGroupsStream().collect(Collectors.toUnmodifiableList());
 
-            if (groupModel == null) {
-                log.info("Could not find group by id: " + job.getUserId());
+            session.groupLocalStorage().getGroupsStream(realmModel).forEach(group -> {
+                if (userGroups.stream().anyMatch(userGroup -> userGroup.getId().equals(group.getId()))) {
+                    enquerer.enqueueGroupJoinJob(realmModel, componentModel, userModel, group);
+                } else {
+                    enquerer.enqueueGroupLeaveJob(realmModel, componentModel, userModel, group);
+                }
+            });
+        }
+        
+        ScimUserAdapter scimUserAdapter = new ScimUserAdapter(session, realmModel, componentModel, userModel);
+        scimClient.createOrUpdateUser(scimUserAdapter, result);
+    }
+
+    private void deleteUser(RealmModel realmModel, ScimSyncJobQueue job, ComponentModel componentModel)
+            throws ScimException {
+        if (componentModel == null) {
+            if (job.getComponentId() == null) {
+                log.info("Component id is needed to delete user");
                 return;
             }
 
-            ScimGroupAdapter scimGroupAdapter = new ScimGroupAdapter(session, groupModel, realmModel.getId(), component.getId());
-            
-            if (updateOnly) {
-                scimClient.updateGroup(scimGroupAdapter);
+            componentModel = realmModel.getComponent(job.getComponentId());
+        }
+
+        if (!componentModel.getProviderId().equals(SkssStorageProviderFactory.PROVIDER_ID)) {
+            log.info("Federated user component is not of the correct type.");
+            return;
+        }
+
+        ScimClient2 scimClient = ScimClient2Factory.getClient(componentModel);
+        scimClient.deleteUser(job.getExternalId());
+    }
+
+    private void updateGroupName(RealmModel realmModel, ScimSyncJobQueue job) throws ScimException {
+        createOrUpdateGroup(realmModel, job, null, null, true);
+    }
+
+    private void createOrUpdateGroup(RealmModel realmModel, ScimSyncJobQueue job, ComponentModel componentModel,
+            GroupModel groupModel, boolean updateOnly) throws ScimException {
+        ScimClient2 scimClient = ScimClient2Factory.getClient(componentModel);
+
+        if (groupModel == null) {
+            groupModel = session.groupLocalStorage().getGroupById(realmModel, job.getGroupId());
+        }
+
+        if (groupModel == null) {
+            log.info("Could not find group by id: " + job.getUserId());
+            return;
+        }
+
+        ScimGroupAdapter scimGroupAdapter = new ScimGroupAdapter(session, groupModel, realmModel.getId(),
+                componentModel.getId());
+
+        if (updateOnly) {
+            scimClient.updateGroup(scimGroupAdapter);
+        } else {
+            scimClient.createOrUpdateGroup(scimGroupAdapter);
+        }
+    }
+
+    private void createOrUpdateGroup(RealmModel realmModel, ScimSyncJobQueue job, ComponentModel componentModel,
+            GroupModel groupModel) throws ScimException {
+        if (componentModel == null) {
+            for (ComponentModel component : ComponentModelUtils
+                    .getComponents(session.getKeycloakSessionFactory(), realmModel, SkssStorageProviderFactory.PROVIDER_ID)
+                    .collect(Collectors.toList())) {
+                createOrUpdateGroup(realmModel, job, component, groupModel, false);
             }
-            else {
-                scimClient.createOrUpdateGroup(scimGroupAdapter);
-            }
+        } else {
+            createOrUpdateGroup(realmModel, job, componentModel, groupModel, false);
         }
     }
 
     private void deleteGroup(RealmModel realmModel, ScimSyncJobQueue job) throws ScimException {
-        for (ComponentModel component : getComponents(SkssStorageProviderFactory.PROVIDER_ID)) {
+        for (ComponentModel component : ComponentModelUtils
+                .getComponents(session.getKeycloakSessionFactory(), realmModel, SkssStorageProviderFactory.PROVIDER_ID)
+                .collect(Collectors.toList())) {
             ScimClient2 scimClient = ScimClient2Factory.getClient(component);
 
-            ScimGroupAdapter scimGroupAdapter = new ScimGroupAdapter(session, job.getGroupId(), realmModel.getId(), component.getId());
+            ScimGroupAdapter scimGroupAdapter = new ScimGroupAdapter(session, job.getGroupId(), realmModel.getId(),
+                    component.getId());
             scimClient.deleteGroup(scimGroupAdapter.getExternalId());
             scimGroupAdapter.removeExternalId();
         }
     }
 
-    private void joinGroup(RealmModel realmModel, ScimSyncJobQueue job) throws ScimException {
-        boolean shouldRecreateJob = leaveOrJoinGroup(realmModel, job, true);
+    private void joinGroup(RealmModel realmModel, ScimSyncJobQueue job, ComponentModel componentModel,
+            UserModel userModel, GroupModel groupModel) throws ScimException {
+        boolean shouldRecreateJob = leaveOrJoinGroup(realmModel, job, componentModel, userModel, groupModel, true);
 
         if (shouldRecreateJob) {
-            enquerer.enqueueGroupJoinJob(job.getRealmId(), job.getGroupId(), job.getUserId());
+            enquerer.enqueueGroupJoinJob(realmModel, componentModel, userModel, groupModel);
         }
     }
 
-    private void leaveGroup(RealmModel realmModel, ScimSyncJobQueue job) throws ScimException {
-        boolean shouldRecreateJob = leaveOrJoinGroup(realmModel, job, false);
+    private void leaveGroup(RealmModel realmModel, ScimSyncJobQueue job, ComponentModel componentModel,
+            UserModel userModel, GroupModel groupModel) throws ScimException {
+        boolean shouldRecreateJob = leaveOrJoinGroup(realmModel, job, componentModel, userModel, groupModel, false);
 
         if (shouldRecreateJob) {
-            enquerer.enqueueGroupLeaveJob(job.getRealmId(), job.getGroupId(), job.getUserId());
+            enquerer.enqueueGroupJoinJob(realmModel, componentModel, userModel, groupModel);
         }
     }
 
-    private boolean leaveOrJoinGroup(RealmModel realmModel, ScimSyncJobQueue job, boolean join) throws ScimException {
-        UserModel userModel = session.userLocalStorage().getUserById(realmModel, job.getUserId());
-
-        if (userModel.getFederationLink() == null) {
-            log.infof("User with username %s does not have a federation link.", userModel.getUsername());
-            return false;
+    private boolean leaveOrJoinGroup(RealmModel realmModel, ScimSyncJobQueue job, ComponentModel componentModel,
+            UserModel userModel, GroupModel groupModel, boolean join) throws ScimException {
+        if (userModel == null) {
+            userModel = session.userLocalStorage().getUserById(realmModel, job.getUserId());
         }
 
-        ComponentModel component = getComponent(userModel.getFederationLink(), realmModel.getId());
-
-        if (!component.getProviderId().equals(SkssStorageProviderFactory.PROVIDER_ID)) {
-            log.info("Federated user component is not of the correct type.");
-            return false;
+        if (componentModel == null) {
+            componentModel = realmModel.getComponent(userModel.getFederationLink());
         }
 
-        GroupModel groupModel = session.groupLocalStorage().getGroupById(realmModel, job.getGroupId());
+        if (groupModel == null) {
+            groupModel = session.groupLocalStorage().getGroupById(realmModel, job.getGroupId());
+        }
 
         if (groupModel == null) {
             log.info("Could not find group by id: " + job.getUserId());
             return false;
         }
 
-        ScimGroupAdapter scimGroupAdapter = new ScimGroupAdapter(session, groupModel, realmModel.getId(), component.getId());
+        ScimGroupAdapter scimGroupAdapter = new ScimGroupAdapter(session, groupModel, realmModel.getId(),
+                componentModel.getId());
 
         boolean createJobScheduled = false;
 
         if (scimGroupAdapter.getExternalId() == null) {
-            enquerer.enqueueGroupCreateJob(job.getRealmId(), job.getGroupId());
+            enquerer.enqueueGroupCreateJob(realmModel, componentModel, groupModel);
             createJobScheduled = true;
         }
 
-        ScimUserAdapter scimUserAdapter = new ScimUserAdapter(session, realmModel, component, userModel);
+        ScimUserAdapter scimUserAdapter = new ScimUserAdapter(session, realmModel, componentModel, userModel);
 
         if (scimUserAdapter.getExternalId() == null) {
-            enquerer.enqueueUserCreateJob(job.getRealmId(), userModel.getFederationLink(), job.getUserId());
+            enquerer.enqueueUserCreateJob(realmModel, componentModel, userModel);
             createJobScheduled = true;
         }
 
-        ScimClient2 scimClient = ScimClient2Factory.getClient(component);
-
-        boolean result = join ?
-            scimClient.joinGroup(scimGroupAdapter, scimUserAdapter) :
-            scimClient.leaveGroup(scimGroupAdapter, scimUserAdapter);
-        
-        return !result && createJobScheduled;
-    }
-
-    private List<ComponentModel> getComponents(String providerId) {
-        String sql = "select ce from ComponentEntity ce where ce.providerId = :providerId";
-
-        List<ComponentEntity> componentEntityList = em.createQuery(sql, ComponentEntity.class)
-                .setParameter("providerId", providerId)
-                .getResultList();
-
-        return componentEntityList
-                .stream()
-                .map(this::mapComponentModel)
-                .collect(Collectors.toList());
-    }
-
-    private ComponentModel getComponent(String cmpId, String realmId) {
-        String sql = "select u from ComponentEntity u where u.id = :cmpId and u.realm.id = :realmId";
-
-        ComponentEntity c = em.createQuery(sql, ComponentEntity.class)
-                .setParameter("realmId", realmId)
-                .setParameter("cmpId", cmpId)
-                .getSingleResult();
-
-        return mapComponentModel(c);
-    }
-
-    private ComponentModel mapComponentModel(ComponentEntity componentEntity) {
-        ComponentModel model = new ComponentModel();
-        model.setId(componentEntity.getId());
-        model.setName(componentEntity.getName());
-        model.setProviderType(componentEntity.getProviderType());
-        model.setProviderId(componentEntity.getProviderId());
-        model.setSubType(componentEntity.getSubType());
-        model.setParentId(componentEntity.getParentId());
-        MultivaluedHashMap<String, String> config = new MultivaluedHashMap<>();
-        for (ComponentConfigEntity configEntity : componentEntity.getComponentConfigs()) {
-            config.add(configEntity.getName(), configEntity.getValue());
+        if (createJobScheduled) {
+            return true;
         }
-        model.setConfig(config);
-        return model;
+
+        ScimClient2 scimClient = ScimClient2Factory.getClient(componentModel);
+
+        if (join) {
+            scimClient.joinGroup(scimGroupAdapter, scimUserAdapter);
+        }
+        else {
+            scimClient.leaveGroup(scimGroupAdapter, scimUserAdapter);
+        }
+
+        return false;
     }
 }

@@ -6,13 +6,13 @@ import org.keycloak.events.EventListenerProviderFactory;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
 
-import dev.suvera.keycloak.scim2.storage.storage.JobEnqueuer;
+import dev.suvera.keycloak.scim2.storage.storage.JobEnqueuerFactory;
 
 public class ScimEventListenerProviderFactory implements EventListenerProviderFactory {
 
     @Override
     public EventListenerProvider create(KeycloakSession session) {
-        return new ScimEventListener(new JobEnqueuer(session));
+        return new ScimEventListener(JobEnqueuerFactory.create(session));
     }
 
     @Override
