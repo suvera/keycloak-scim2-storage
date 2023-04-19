@@ -190,6 +190,9 @@ public class ScimSyncJob {
     private void createUser(RealmModel realmModel, ComponentModel componentModel, UserModel userModel, SynchronizationResult result)
             throws ScimException {
         ScimClient2 scimClient = ScimClient2Factory.getClient(componentModel);
+        
+        ScimUserAdapter scimUserAdapter = new ScimUserAdapter(session, realmModel, componentModel, userModel);
+        scimClient.createOrUpdateUser(scimUserAdapter, result);
 
         if (result != null) {
             List<GroupModel> userGroups = userModel.getGroupsStream().collect(Collectors.toUnmodifiableList());
@@ -202,9 +205,6 @@ public class ScimSyncJob {
                 }
             });
         }
-        
-        ScimUserAdapter scimUserAdapter = new ScimUserAdapter(session, realmModel, componentModel, userModel);
-        scimClient.createOrUpdateUser(scimUserAdapter, result);
     }
 
     private void deleteUser(RealmModel realmModel, ScimSyncJobQueue job, ComponentModel componentModel)

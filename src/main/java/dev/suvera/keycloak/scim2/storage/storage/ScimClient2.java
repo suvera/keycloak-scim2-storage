@@ -278,10 +278,14 @@ public class ScimClient2 {
 
         if (user == null) {
             createUser(scimUser);
-            result.increaseAdded();
+            if (result != null) {
+                result.increaseAdded();
+            }
         } else {
             updateUser(scimUser, user.getId());
-            result.increaseUpdated();
+            if (result != null) {
+                result.increaseUpdated();
+            }
         }
     }
 
