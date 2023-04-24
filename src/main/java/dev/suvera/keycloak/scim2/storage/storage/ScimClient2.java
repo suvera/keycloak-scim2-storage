@@ -303,9 +303,19 @@ public class ScimClient2 {
         UserRecord scimUser = buildScimUser(userModel);
         scimUser.setId(externalId);
 
-        UserRecord user = scimService.replaceUser(externalId, scimUser);
+        PatchRequest<UserRecord> patchRequest = new PatchRequest<>(UserRecord.class);
 
-        userModel.setExternalId(user.getId());
+        patchRequest.addOperation(PatchOp.REPLACE, "name", scimUser.getName());
+        patchRequest.addOperation(PatchOp.REPLACE, "displayName", scimUser.getDisplayName());
+        patchRequest.addOperation(PatchOp.REPLACE, "title", scimUser.getTitle());
+        patchRequest.addOperation(PatchOp.REPLACE, "nickName", scimUser.getNickName());
+        patchRequest.addOperation(PatchOp.REPLACE, "adresses_primary", scimUser.getAddresses());
+        patchRequest.addOperation(PatchOp.REPLACE, "phoneNumbers_primary", scimUser.getPhoneNumbers());
+        patchRequest.addOperation(PatchOp.REPLACE, "emails[type eq \"work\"].value", scimUser.getEmails().get(0).getValue());
+
+        PatchResponse<UserRecord> response = scimService.patchUser(externalId, patchRequest);
+
+        userModel.setExternalId(response.getResource().getId());
     }
  
     public void updateUser(ScimUserAdapter userModel) throws ScimException {
