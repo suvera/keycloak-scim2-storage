@@ -34,6 +34,10 @@ import dev.suvera.scim2.schema.data.misc.ListResponse;
 import dev.suvera.scim2.schema.data.misc.PatchRequest;
 import dev.suvera.scim2.schema.data.misc.PatchResponse;
 import dev.suvera.scim2.schema.data.user.UserRecord;
+import dev.suvera.scim2.schema.data.user.UserRecord.UserAddress;
+import dev.suvera.scim2.schema.data.user.UserRecord.UserEmail;
+import dev.suvera.scim2.schema.data.user.UserRecord.UserName;
+import dev.suvera.scim2.schema.data.user.UserRecord.UserPhoneNumber;
 import dev.suvera.scim2.schema.enums.PatchOp;
 import dev.suvera.scim2.schema.ex.ScimException;
 
@@ -305,19 +309,53 @@ public class ScimClient2 {
 
         PatchRequest<UserRecord> patchRequest = new PatchRequest<>(UserRecord.class);
 
-        patchRequest.addOperation(PatchOp.REPLACE, "name", scimUser.getName());
-        patchRequest.addOperation(PatchOp.REPLACE, "displayName", scimUser.getDisplayName());
-        patchRequest.addOperation(PatchOp.REPLACE, "title", scimUser.getTitle());
-        patchRequest.addOperation(PatchOp.REPLACE, "nickName", scimUser.getNickName());
-        patchRequest.addOperation(PatchOp.REPLACE, "adresses_primary", scimUser.getAddresses());
-        patchRequest.addOperation(PatchOp.REPLACE, "phoneNumbers_primary", scimUser.getPhoneNumbers());
-        patchRequest.addOperation(PatchOp.REPLACE, "emails[type eq \"work\"].value", scimUser.getEmails().get(0).getValue());
+        UserName name = scimUser.getName();
+        if (name != null
+                && (name.getFamilyName() != null
+                        || name.getFormatted() != null
+                        || name.getGivenName() != null
+                        || name.getHonorificPrefix() != null
+                        || name.getHonorificSuffix() != null
+                        || name.getMiddleName() != null)) {
+            patchRequest.addOperation(PatchOp.REPLACE, "name", name);
+        }
+
+        String displayName = scimUser.getDisplayName();
+        if (displayName != null) {
+            patchRequest.addOperation(PatchOp.REPLACE, "displayName", displayName);
+        }
+
+        String title = scimUser.getTitle();
+        if (title != null) {
+            patchRequest.addOperation(PatchOp.REPLACE, "title", title);
+        }
+
+        String nickName = scimUser.getNickName();
+        if (nickName != null) {
+            patchRequest.addOperation(PatchOp.REPLACE, "nickName", nickName);
+        }
+
+        List<UserAddress> addresses = scimUser.getAddresses();
+        if (addresses.size() > 0) {
+            patchRequest.addOperation(PatchOp.REPLACE, "adresses_primary", addresses);
+        }
+
+        List<UserPhoneNumber> phoneNumbers = scimUser.getPhoneNumbers();
+        if (phoneNumbers.size() > 0) {
+            patchRequest.addOperation(PatchOp.REPLACE, "phoneNumbers_primary", phoneNumbers);
+        }
+
+        List<UserEmail> emails = scimUser.getEmails().stream().filter(userEmail -> userEmail.getType() == "work")
+                .collect(Collectors.toList());
+        if (emails.size() > 0) {
+            patchRequest.addOperation(PatchOp.REPLACE, "emails[type eq \"work\"].value", emails.get(0).getValue());
+        }
 
         PatchResponse<UserRecord> response = scimService.patchUser(externalId, patchRequest);
 
         userModel.setExternalId(response.getResource().getId());
     }
- 
+
     public void updateUser(ScimUserAdapter userModel) throws ScimException {
         if (scimService == null) {
             return;
