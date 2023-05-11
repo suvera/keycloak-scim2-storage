@@ -286,7 +286,7 @@ public class ScimClient2 {
                 result.increaseAdded();
             }
         } else {
-            updateUser(scimUser, user.getId());
+            updateUser(scimUser, user);
             if (result != null) {
                 result.increaseUpdated();
             }
@@ -303,55 +303,13 @@ public class ScimClient2 {
         return users.getResources().stream().findFirst().orElse(null);
     }
 
-    private void updateUser(ScimUserAdapter userModel, String externalId) throws ScimException {
+    private void updateUser(ScimUserAdapter userModel, UserRecord originalUser) throws ScimException {
         UserRecord scimUser = buildScimUser(userModel);
-        scimUser.setId(externalId);
+        scimUser.setId(originalUser.getId());
 
-        PatchRequest<UserRecord> patchRequest = new PatchRequest<>(UserRecord.class);
+        PatchRequest<UserRecord> patchRequest = UserRecordPatchBuilder.buildPatchRequest(scimUser, originalUser);
 
-        UserName name = scimUser.getName();
-        if (name != null
-                && (name.getFamilyName() != null
-                        || name.getFormatted() != null
-                        || name.getGivenName() != null
-                        || name.getHonorificPrefix() != null
-                        || name.getHonorificSuffix() != null
-                        || name.getMiddleName() != null)) {
-            patchRequest.addOperation(PatchOp.REPLACE, "name", name);
-        }
-
-        String displayName = scimUser.getDisplayName();
-        if (displayName != null) {
-            patchRequest.addOperation(PatchOp.REPLACE, "displayName", displayName);
-        }
-
-        String title = scimUser.getTitle();
-        if (title != null) {
-            patchRequest.addOperation(PatchOp.REPLACE, "title", title);
-        }
-
-        String nickName = scimUser.getNickName();
-        if (nickName != null) {
-            patchRequest.addOperation(PatchOp.REPLACE, "nickName", nickName);
-        }
-
-        List<UserAddress> addresses = scimUser.getAddresses();
-        if (addresses.size() > 0) {
-            patchRequest.addOperation(PatchOp.REPLACE, "adresses_primary", addresses);
-        }
-
-        List<UserPhoneNumber> phoneNumbers = scimUser.getPhoneNumbers();
-        if (phoneNumbers.size() > 0) {
-            patchRequest.addOperation(PatchOp.REPLACE, "phoneNumbers_primary", phoneNumbers);
-        }
-
-        List<UserEmail> emails = scimUser.getEmails().stream().filter(userEmail -> userEmail.getType() == "work")
-                .collect(Collectors.toList());
-        if (emails.size() > 0) {
-            patchRequest.addOperation(PatchOp.REPLACE, "emails[type eq \"work\"].value", emails.get(0).getValue());
-        }
-
-        PatchResponse<UserRecord> response = scimService.patchUser(externalId, patchRequest);
+        PatchResponse<UserRecord> response = scimService.patchUser(scimUser.getId(), patchRequest);
 
         userModel.setExternalId(response.getResource().getId());
     }
@@ -366,7 +324,7 @@ public class ScimClient2 {
             return;
         }
 
-        updateUser(userModel, user.getId());
+        updateUser(userModel, user);
     }
 
     public UserRecord getUser(ScimUserAdapter userModel) throws ScimException {
