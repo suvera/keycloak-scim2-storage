@@ -57,7 +57,7 @@ public class UserRecordPatchBuilder {
         }
 
         if (values1 != null) {
-            values1.forEach(v -> patch.addOperation(PatchOp.REMOVE, String.format(path, typeProp.apply(v)), ""));
+            values1.forEach(v -> patch.addOperation(PatchOp.REMOVE, String.format(path, typeProp.apply(v)), valueProp.apply(v)));
         }
     }
 
