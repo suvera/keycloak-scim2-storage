@@ -38,7 +38,19 @@ public class ScimEventListener implements EventListenerProvider {
     @Override
     public void onEvent(AdminEvent event, boolean includeRepresentation) {
         if (event.getResourceType() == ResourceType.USER) {
-            if (event.getOperationType() == OperationType.UPDATE) {
+            if (event.getOperationType() == OperationType.CREATE) {
+                logEventHandlingMessage(event);
+
+                JsonNode representationJson = readJsonString(event.getRepresentation());
+
+                if (representationJson != null) {
+                    
+                    jobQueue.enqueueUserCreateJob(
+                        event.getRealmId(),
+                        representationJson.get("username").asText());
+                }
+            }
+            else if (event.getOperationType() == OperationType.UPDATE) {
                 logEventHandlingMessage(event);
 
                 JsonNode representationJson = readJsonString(event.getRepresentation());

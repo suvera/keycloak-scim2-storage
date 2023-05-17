@@ -63,6 +63,17 @@ public class JobEnqueuer {
         log.infof("User with id %s scheduled to be added on SCIM", userId);
     }
 
+    public void enqueueUserCreateJob(String realmId, String username) {
+        session.getContext().setRealm(session.realms().getRealm(realmId));
+        RealmModel realmModel = session.realms().getRealm(realmId);
+        UserModel userModel = session.userLocalStorage().getUserByUsername(realmModel, username);
+
+        if (userModel != null) {
+            ComponentModel componentModel = realmModel.getComponent(userModel.getFederationLink());
+            enqueueUserCreateJob(realmModel, componentModel, userModel);
+        }
+    }
+
     public void enqueueUserCreateJob(RealmModel realmModel, ComponentModel componentModel, UserModel userModel) {
         ScimSyncJobQueue entity = createJobQueue(realmModel.getId());
         entity.setAction(ScimSyncJob.CREATE_USER);
