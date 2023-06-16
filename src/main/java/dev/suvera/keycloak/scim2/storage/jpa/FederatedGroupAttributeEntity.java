@@ -11,7 +11,7 @@ import lombok.Data;
 import lombok.ToString;
 
 @NamedQueries({
-    @NamedQuery(name="getFederatedGroupAttribute", query="select attr from FederatedGroupAttributeEntity attr where attr.groupId = :groupId and attr.realmId = :realmId and attr.storageProviderId = :storageProviderId and name = :name")
+    @NamedQuery(name="getFederatedGroupAttribute", query="select attr from FederatedGroupAttributeEntity attr where attr.groupId = :groupId and lower(attr.realmId) = lower(:realmId) and attr.storageProviderId = :storageProviderId and name = :name")
 })
 @Data
 @ToString
