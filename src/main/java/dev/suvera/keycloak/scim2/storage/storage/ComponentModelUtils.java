@@ -26,7 +26,7 @@ public final class ComponentModelUtils {
 
         KeycloakModelUtils.runJobInTransaction(factory, kcSession -> {
             EntityManager em = kcSession.getProvider(JpaConnectionProvider.class).getEntityManager();
-            String sql = "select ce from ComponentEntity ce where ce.providerId = :providerId and ce.realm.name = :realmId";
+            String sql = "select ce from ComponentEntity ce where ce.providerId = :providerId and lower(ce.realm.name) = lower(:realmId)";
 
             componentEntityList.set(em.createQuery(sql, ComponentEntity.class)
                     .setParameter("providerId", providerId)

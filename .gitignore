@@ -58,7 +58,7 @@ out/
 /.nb-gradle/
 
 ### VS Code ###
-.vscode/
+### .vscode/
 Test.java
 src/main/java/dev/suvera/opensource/scim2/compliance/Test.java
 
