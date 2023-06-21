@@ -286,7 +286,7 @@ public class ScimClient2 {
                 result.increaseAdded();
             }
         } else {
-            updateUser(scimUser, user);
+            updateUser(scimUser, user);            
             if (result != null) {
                 result.increaseUpdated();
             }
@@ -366,7 +366,13 @@ public class ScimClient2 {
         if (group == null) {
             createGroup(scimGroup);
         } else {
-            updateGroup(scimGroup, group);
+            if (scimGroup.getExternalId() == null) {
+                // if there is no external id, just set it and do not replace group data
+                scimGroup.setExternalId((group.getId()));
+                // TODO: maybe we need to patch group here
+            } else {            
+                updateGroup(scimGroup, group);
+            }
         }
     }
 

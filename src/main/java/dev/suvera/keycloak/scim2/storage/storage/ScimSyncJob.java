@@ -282,24 +282,25 @@ public class ScimSyncJob {
 
     private void joinGroup(RealmModel realmModel, ScimSyncJobQueue job, ComponentModel componentModel,
             UserModel userModel, GroupModel groupModel) throws ScimException {
-        boolean shouldRecreateJob = leaveOrJoinGroup(realmModel, job, componentModel, userModel, groupModel, true);
+        LeaveOrJoinGroupResult result = leaveOrJoinGroup(realmModel, job, componentModel, userModel, groupModel, true);
 
-        if (shouldRecreateJob) {
-            enquerer.enqueueGroupJoinJob(realmModel, componentModel, userModel, groupModel);
+        if (result.shouldRecreateJob) {
+            enquerer.enqueueGroupJoinJob(result.realmModel, result.componentModel, result.userModel, result.groupModel);
         }
     }
 
     private void leaveGroup(RealmModel realmModel, ScimSyncJobQueue job, ComponentModel componentModel,
             UserModel userModel, GroupModel groupModel) throws ScimException {
-        boolean shouldRecreateJob = leaveOrJoinGroup(realmModel, job, componentModel, userModel, groupModel, false);
+        LeaveOrJoinGroupResult result = leaveOrJoinGroup(realmModel, job, componentModel, userModel, groupModel, false);
 
-        if (shouldRecreateJob) {
-            enquerer.enqueueGroupJoinJob(realmModel, componentModel, userModel, groupModel);
+        if (result.shouldRecreateJob) {
+            enquerer.enqueueGroupLeaveJob(result.realmModel, result.componentModel, result.userModel, result.groupModel);
         }
     }
 
-    private boolean leaveOrJoinGroup(RealmModel realmModel, ScimSyncJobQueue job, ComponentModel componentModel,
+    private LeaveOrJoinGroupResult leaveOrJoinGroup(RealmModel realmModel, ScimSyncJobQueue job, ComponentModel componentModel,
             UserModel userModel, GroupModel groupModel, boolean join) throws ScimException {
+
         if (userModel == null) {
             userModel = session.userLocalStorage().getUserById(realmModel, job.getUserId());
         }
@@ -314,11 +315,10 @@ public class ScimSyncJob {
 
         if (groupModel == null) {
             log.info("Could not find group by id: " + job.getUserId());
-            return false;
+            return new LeaveOrJoinGroupResult(false, null, null, null, null);
         }
 
-        ScimGroupAdapter scimGroupAdapter = new ScimGroupAdapter(session, groupModel, realmModel.getId(),
-                componentModel.getId());
+        ScimGroupAdapter scimGroupAdapter = new ScimGroupAdapter(session, groupModel, realmModel.getId(), componentModel.getId());
 
         boolean createJobScheduled = false;
 
@@ -335,7 +335,7 @@ public class ScimSyncJob {
         }
 
         if (createJobScheduled) {
-            return true;
+            return new LeaveOrJoinGroupResult(true, realmModel, componentModel, userModel, groupModel);
         }
 
         ScimClient2 scimClient = ScimClient2Factory.getClient(componentModel);
@@ -347,6 +347,26 @@ public class ScimSyncJob {
             scimClient.leaveGroup(scimGroupAdapter, scimUserAdapter);
         }
 
-        return false;
+        return new LeaveOrJoinGroupResult(false, null, null, null, null);
+    }
+
+    private static class LeaveOrJoinGroupResult {
+
+        public LeaveOrJoinGroupResult(
+            boolean shouldRecreateJob, RealmModel realmModel, ComponentModel componentModel, 
+            UserModel userModel, GroupModel groupModel)
+        {
+            this.shouldRecreateJob = shouldRecreateJob;
+            this.realmModel = realmModel;
+            this.componentModel = componentModel;
+            this.userModel = userModel;
+            this.groupModel = groupModel;
+        }
+
+        boolean shouldRecreateJob = false;
+        RealmModel realmModel;
+        ComponentModel componentModel;
+        UserModel userModel;
+        GroupModel groupModel;
     }
 }
