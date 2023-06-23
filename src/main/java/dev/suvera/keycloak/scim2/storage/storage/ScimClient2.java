@@ -126,7 +126,23 @@ public class ScimClient2 {
         UserRecord user = new UserRecord();
 
         user.setUserName(userModel.getUsername());
-        //user.setPassword();
+
+        List<UserRecord.UserClaim> claims = new ArrayList<>();
+        List<String> defaultClaims = Arrays.asList("firstName", "lastName", "username", "email");
+
+        userModel.getAttributes().forEach((k, v) -> {
+            UserRecord.UserClaim claim = new UserRecord.UserClaim();
+
+            if(!defaultClaims.contains(k))
+            {
+                claim.setAttributeKey(k);
+                claim.setAttributeValue(v.get(0));
+    
+                claims.add(claim);
+            }
+        });
+
+        user.setClaims(claims);
 
         UserRecord.UserName name = new UserRecord.UserName();
         name.setGivenName(userModel.getFirstName() == null ? userModel.getUsername()
@@ -139,7 +155,8 @@ public class ScimClient2 {
         }
         if (isAttributeNotNull(userModel, "honorificSuffix")) {
             name.setHonorificSuffix(userModel.getFirstAttribute("honorificSuffix"));
-        }
+        }    
+
         user.setName(name);
 
         if (userModel.getEmail() != null) {

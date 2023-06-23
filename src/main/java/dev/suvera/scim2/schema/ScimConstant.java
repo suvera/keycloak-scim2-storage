@@ -21,6 +21,9 @@ public class ScimConstant {
     public static final String URN_ENTERPRISE_USER
             = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
 
+    public static final String URN_ADINSURE_USER
+        = "urn:ietf:params:scim:schemas:extension:adinsure:2.0:User";
+
     public static final String URN_ERROR = "urn:ietf:params:scim:api:messages:2.0:Error";
 
     public static final String URN_SEARCH_REQUEST = "urn:ietf:params:scim:api:messages:2.0:SearchRequest";

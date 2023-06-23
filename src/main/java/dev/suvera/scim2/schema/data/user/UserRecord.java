@@ -40,6 +40,7 @@ public class UserRecord extends BaseRecord {
     private List<UserEntitlement> entitlements;
     private List<UserRole> roles;
     private List<UserX509Certificate> x509Certificates;
+    private List<UserClaim> claims;
 
     @JsonIgnore
     private Map<String, ExtensionRecord> extensions = new HashMap<>();
@@ -63,6 +64,13 @@ public class UserRecord extends BaseRecord {
         private String middleName;
         private String honorificPrefix;
         private String honorificSuffix;
+    }
+
+    @Data
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    public static class UserClaim {
+        private String attributeKey;
+        private String attributeValue;
     }
 
     @Data
@@ -149,5 +157,4 @@ public class UserRecord extends BaseRecord {
         private String type;
         private boolean primary;
     }
-
 }
