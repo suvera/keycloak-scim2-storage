@@ -1,6 +1,9 @@
 package dev.suvera.keycloak.scim2.storage.storage;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import javax.persistence.EntityManager;
@@ -101,9 +104,9 @@ public class ScimSyncJob {
                 result.increaseRemoved();
             }
         } else if (job.getAction().equals(CREATE_GROUP)) {
-            createOrUpdateGroup(realmModel, job, componentModel, groupModel);
+            createOrUpdateGroup(realmModel, job, componentModel, groupModel, false);
         } else if (job.getAction().equals(UPDATE_GROUP)) {
-            updateGroupName(realmModel, job);
+            createOrUpdateGroup(realmModel, job, componentModel, groupModel, true);
         } else if (job.getAction().equals(DELETE_GROUP)) {
             deleteGroup(realmModel, job);
         } else if (job.getAction().equals(JOIN_GROUP)) {
@@ -227,43 +230,165 @@ public class ScimSyncJob {
         scimClient.deleteUser(job.getExternalId());
     }
 
-    private void updateGroupName(RealmModel realmModel, ScimSyncJobQueue job) throws ScimException {
-        createOrUpdateGroup(realmModel, job, null, null, true);
-    }
-
-    private void createOrUpdateGroup(RealmModel realmModel, ScimSyncJobQueue job, ComponentModel componentModel,
+    private void createOrUpdateGroupOnComponent(RealmModel realmModel, ScimSyncJobQueue job, ComponentModel componentModel,
             GroupModel groupModel, boolean updateOnly) throws ScimException {
-        ScimClient2 scimClient = ScimClient2Factory.getClient(componentModel);
-
         if (groupModel == null) {
             groupModel = session.groupLocalStorage().getGroupById(realmModel, job.getGroupId());
         }
 
         if (groupModel == null) {
-            log.info("Could not find group by id: " + job.getUserId());
+            log.info("Could not find group by id: " + job.getGroupId());
             return;
         }
+
+        ScimClient2 scimClient = ScimClient2Factory.getClient(componentModel);
 
         ScimGroupAdapter scimGroupAdapter = new ScimGroupAdapter(session, groupModel, realmModel.getId(),
                 componentModel.getId());
 
+        List<String> groupManagersExternalIds = getGroupManagersExternalIds(realmModel, componentModel, groupModel);
+
+        List<SubstituteUser> substituteUsers = getSubstituteUsersExternalIds(realmModel, componentModel, groupModel);
+
         if (updateOnly) {
-            scimClient.updateGroup(scimGroupAdapter);
+            scimClient.updateGroup(scimGroupAdapter, groupManagersExternalIds, substituteUsers);
         } else {
-            scimClient.createOrUpdateGroup(scimGroupAdapter);
+            scimClient.createOrUpdateGroup(scimGroupAdapter, groupManagersExternalIds, substituteUsers);
         }
     }
 
+    private List<String> getGroupManagersExternalIds(RealmModel realmModel, ComponentModel componentModel, GroupModel groupModel) {
+        List<String> usernames = getGroupManagersUsernames(groupModel);
+
+        if (usernames == null || usernames.isEmpty()) {
+            return List.of();
+        }
+
+        List<String> externalIds = new ArrayList<String>(usernames.size());
+        for (String username : usernames) {
+            String externalId = getExternalIdByUsername(realmModel, componentModel, username);
+
+            if (!(externalId == null || externalId.isEmpty())) {
+                externalIds.add(externalId);
+            }
+        }
+
+        return externalIds;
+    }
+
+    private List<String> getGroupManagersUsernames(GroupModel groupModel) {
+        Map<String, List<String>> attributes = groupModel.getAttributes();
+        
+        if (attributes == null) {
+            return List.of();
+        }
+
+        if (!attributes.containsKey("group_managers")) {
+            return List.of();
+        }
+
+        List<String> value = attributes.get("group_managers");
+
+        if (value == null || value.isEmpty()) {
+            return List.of();
+        }
+
+        String[] untrimmedUsernames = value.get(0).split(",");
+        List<String> usernames = Arrays
+            .asList(untrimmedUsernames)
+            .stream()
+            .map(x-> x.trim())
+            .collect(Collectors.toList());
+
+        return usernames;
+    }
+
+    private String getExternalIdByUsername(RealmModel realmModel, ComponentModel componentModel, String username) {
+        UserModel userModel = session.userLocalStorage().getUserByUsername(realmModel, username);
+
+        if (userModel == null) {
+            return null;
+        }
+
+        ScimUserAdapter userAdapter = new ScimUserAdapter(session, realmModel, componentModel, userModel);
+        String externalId = userAdapter.getExternalId();
+
+        return externalId;
+    }
+
+    private List<SubstituteUser> getSubstituteUsersExternalIds(RealmModel realmModel, ComponentModel componentModel, GroupModel groupModel) {
+        List<SubstituteUser> substituteUsers = getSubstituteUsersUsernames(groupModel);
+
+        if (substituteUsers == null || substituteUsers.isEmpty()) {
+            return List.of();
+        }
+
+        List<SubstituteUser> substituteUsersWithExternalIds = new ArrayList<SubstituteUser>(substituteUsers.size());
+        for (SubstituteUser substituteUser : substituteUsers) {
+            String userExternalId = getExternalIdByUsername(realmModel, componentModel, substituteUser.getUser());
+            String substituteUserExternalId = getExternalIdByUsername(realmModel, componentModel, substituteUser.getSubstituteUser());
+
+            if (!(userExternalId == null || userExternalId.isEmpty() || substituteUserExternalId == null || substituteUserExternalId.isEmpty())) {
+                SubstituteUser substituteUserWithExternalIds = new SubstituteUser();
+                substituteUserWithExternalIds.setUser(userExternalId);
+                substituteUserWithExternalIds.setSubstituteUser(substituteUserExternalId);
+                substituteUsersWithExternalIds.add(substituteUserWithExternalIds);
+            }
+        }
+
+        return substituteUsersWithExternalIds;
+    }
+
+    private List<SubstituteUser> getSubstituteUsersUsernames(GroupModel groupModel) {
+        Map<String, List<String>> attributes = groupModel.getAttributes();
+        
+        if (attributes == null) {
+            return List.of();
+        }
+
+        if (!attributes.containsKey("substitute_users")) {
+            return List.of();
+        }
+
+        List<String> value = attributes.get("substitute_users");
+
+        if (value == null || value.isEmpty()) {
+            return List.of();
+        }
+
+        String[] untrimmedUsernames = value.get(0).split(",");
+        List<SubstituteUser> substituteUsers = Arrays
+            .asList(untrimmedUsernames)
+            .stream()
+            .map(x-> { 
+                String[] usersCouple = x.split(":");
+                
+                if (usersCouple == null || usersCouple.length != 2) {
+                    return null;
+                }
+
+                SubstituteUser substituteUser = new SubstituteUser();
+                substituteUser.setUser(usersCouple[0]);
+                substituteUser.setSubstituteUser(usersCouple[1]);
+
+                return substituteUser;
+            })
+            .filter(s -> s != null)
+            .collect(Collectors.toList());
+
+        return substituteUsers;
+    }
+
     private void createOrUpdateGroup(RealmModel realmModel, ScimSyncJobQueue job, ComponentModel componentModel,
-            GroupModel groupModel) throws ScimException {
+            GroupModel groupModel, boolean updateOnly) throws ScimException {
         if (componentModel == null) {
             for (ComponentModel component : ComponentModelUtils
                     .getComponents(session.getKeycloakSessionFactory(), realmModel, SkssStorageProviderFactory.PROVIDER_ID)
                     .collect(Collectors.toList())) {
-                createOrUpdateGroup(realmModel, job, component, groupModel, false);
+                createOrUpdateGroupOnComponent(realmModel, job, component, groupModel, updateOnly);
             }
         } else {
-            createOrUpdateGroup(realmModel, job, componentModel, groupModel, false);
+            createOrUpdateGroupOnComponent(realmModel, job, componentModel, groupModel, updateOnly);
         }
     }
 
@@ -340,11 +465,15 @@ public class ScimSyncJob {
 
         ScimClient2 scimClient = ScimClient2Factory.getClient(componentModel);
 
+        List<String> groupManagersExternalIds = getGroupManagersExternalIds(realmModel, componentModel, groupModel);
+
+        List<SubstituteUser> substituteUsers = getSubstituteUsersExternalIds(realmModel, componentModel, groupModel);
+
         if (join) {
-            scimClient.joinGroup(scimGroupAdapter, scimUserAdapter);
+            scimClient.joinGroup(scimGroupAdapter, scimUserAdapter, groupManagersExternalIds, substituteUsers);
         }
         else {
-            scimClient.leaveGroup(scimGroupAdapter, scimUserAdapter);
+            scimClient.leaveGroup(scimGroupAdapter, scimUserAdapter, groupManagersExternalIds, substituteUsers);
         }
 
         return new LeaveOrJoinGroupResult(false, null, null, null, null);

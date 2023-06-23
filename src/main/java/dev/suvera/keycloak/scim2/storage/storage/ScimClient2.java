@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import javax.mail.Session;
@@ -29,7 +30,9 @@ import dev.suvera.scim2.client.Scim2Client;
 import dev.suvera.scim2.client.Scim2ClientBuilder;
 import dev.suvera.scim2.schema.ScimConstant;
 import dev.suvera.scim2.schema.data.group.GroupRecord;
+import dev.suvera.scim2.schema.data.group.GroupRecord.GroupManager;
 import dev.suvera.scim2.schema.data.group.GroupRecord.GroupMember;
+import dev.suvera.scim2.schema.data.group.GroupRecord.GroupSubstituteUser;
 import dev.suvera.scim2.schema.data.misc.ListResponse;
 import dev.suvera.scim2.schema.data.misc.PatchRequest;
 import dev.suvera.scim2.schema.data.misc.PatchResponse;
@@ -160,7 +163,7 @@ public class ScimClient2 {
         List<UserRecord.UserGroup> groups = new ArrayList<>();
         userAdapter.getScimGroupsStream().forEach(groupAdapter -> {
             try {
-                createOrUpdateGroup(groupAdapter);
+                createOrUpdateGroup(groupAdapter, List.of(), List.of());
             } catch (ScimException e) {
                 log.error("", e);
             }
@@ -351,7 +354,7 @@ public class ScimClient2 {
         }
     }
 
-    public void createOrUpdateGroup(ScimGroupAdapter scimGroup) throws ScimException {
+    public void createOrUpdateGroup(ScimGroupAdapter scimGroup, List<String> groupManagersExternalIds, List<SubstituteUser> substituteUsers) throws ScimException {
         if (scimService == null) {
             return;
         }
@@ -371,7 +374,7 @@ public class ScimClient2 {
                 scimGroup.setExternalId((group.getId()));
                 // TODO: maybe we need to patch group here
             } else {            
-                updateGroup(scimGroup, group);
+                updateGroup(scimGroup, group, groupManagersExternalIds, substituteUsers);
             }
         }
     }
@@ -399,7 +402,7 @@ public class ScimClient2 {
         groupModel.setExternalId(groupRecord.getId());
     }
 
-    private void updateGroup(ScimGroupAdapter groupModel, GroupRecord groupRecord) throws ScimException {
+    private void updateGroupName(ScimGroupAdapter groupModel, GroupRecord groupRecord) throws ScimException {
         groupRecord.setDisplayName(groupModel.getGroupModel().getName());
 
         groupRecord = scimService.replaceGroup(groupRecord.getId(), groupRecord); 
@@ -407,7 +410,52 @@ public class ScimClient2 {
         groupModel.setExternalId(groupRecord.getId());
     }
 
-    public void updateGroup(ScimGroupAdapter groupModel) throws ScimException {
+    private void updateGroup(ScimGroupAdapter groupModel, GroupRecord groupRecord, List<String> groupManagersExternalIds, List<SubstituteUser> substituteUsers) throws ScimException {
+        String externalGroupId = groupModel.getExternalId();
+
+        if (externalGroupId != null) {
+            PatchRequest<GroupRecord> patchRequest = new PatchRequest<>(GroupRecord.class);
+            addPatchGroupManagers(patchRequest, groupManagersExternalIds);
+            addPatchSubstituteUsers(patchRequest, substituteUsers);
+        
+            PatchResponse<GroupRecord> response = scimService.patchGroup(externalGroupId, patchRequest);
+
+            if (response.getStatus() >= 200 && response.getStatus() <= 299) {
+                log.infof("Group %s patch request succedded with http status code %d.", groupModel.getGroupModel().getName(), response.getStatus());
+            }
+            else {
+                log.errorf("Group %s update failed with http status code %d.", groupModel.getGroupModel().getName(), response.getStatus());
+            }
+        }
+    }
+
+    private void addPatchGroupManagers(PatchRequest<GroupRecord> patchRequest, List<String> groupManagersExternalIds) {
+        List<GroupManager> groupManagers = groupManagersExternalIds
+                .stream()
+                .map(x-> {
+                    GroupManager groupManager = new GroupManager();
+                    groupManager.setValue(x);
+    
+                    return groupManager;
+                })
+                .collect(Collectors.toList());
+        patchRequest.addOperation(PatchOp.REPLACE, ScimConstant.URN_ADINSURE_GROUP + ":groupManagers", groupManagers);
+    }
+
+    private void addPatchSubstituteUsers(PatchRequest<GroupRecord> patchRequest, List<SubstituteUser> substituteUsers) {
+        List<GroupSubstituteUser> groupSubstituteUsers = substituteUsers
+                .stream()
+                .map(x-> {
+                    GroupSubstituteUser groupSubstituteUser = new GroupSubstituteUser();
+                    groupSubstituteUser.setValue("{\"UserId\":\"" + x.getUser() + "\",\"SubstituteUserId\":\"" + x.getSubstituteUser() + "\"}");
+
+                    return groupSubstituteUser;
+                })
+                .collect(Collectors.toList());
+        patchRequest.addOperation(PatchOp.REPLACE, ScimConstant.URN_ADINSURE_GROUP + ":substituteUsers", groupSubstituteUsers);
+    }
+
+    public void updateGroup(ScimGroupAdapter groupModel, List<String> groupManagersExternalIds, List<SubstituteUser> substituteUsers) throws ScimException {
         if (scimService == null) {
             return;
         }
@@ -420,10 +468,11 @@ public class ScimClient2 {
         }
 
         GroupRecord grp = scimService.readGroup(id);
-        updateGroup(groupModel, grp);
+        updateGroupName(groupModel, grp);
+        updateGroup(groupModel, grp, groupManagersExternalIds, substituteUsers);
     }
 
-    public boolean joinGroup(ScimGroupAdapter groupModel, ScimUserAdapter userModel) throws ScimException {
+    public boolean joinGroup(ScimGroupAdapter groupModel, ScimUserAdapter userModel, List<String> groupManagersExternalIds, List<SubstituteUser> substituteUsers) throws ScimException {
         if (scimService == null) {
             return false;
         }
@@ -437,6 +486,8 @@ public class ScimClient2 {
             groupMember.setDisplay(userModel.getUsername());
             groupMember.setValue(userModel.getExternalId());
             patchRequest.addOperation(PatchOp.ADD, "members", Arrays.asList(groupMember));
+            addPatchGroupManagers(patchRequest, groupManagersExternalIds);
+            addPatchSubstituteUsers(patchRequest, substituteUsers);
     
             PatchResponse<GroupRecord> response = scimService.patchGroup(externalGroupId, patchRequest);
             return response.getStatus() == 200;
@@ -445,7 +496,7 @@ public class ScimClient2 {
         return false;
     }
 
-    public boolean leaveGroup(ScimGroupAdapter groupModel, ScimUserAdapter userModel) throws ScimException {
+    public boolean leaveGroup(ScimGroupAdapter groupModel, ScimUserAdapter userModel, List<String> groupManagersExternalIds, List<SubstituteUser> substituteUsers) throws ScimException {
         if (scimService == null) {
             return false;
         }
@@ -460,6 +511,8 @@ public class ScimClient2 {
                 PatchOp.REMOVE,
                 String.format("members[value eq \"%s\"]", externalUserId),
                 null);
+            addPatchGroupManagers(patchRequest, groupManagersExternalIds);
+            addPatchSubstituteUsers(patchRequest, substituteUsers);
 
             PatchResponse<GroupRecord> response = scimService.patchGroup(externalGroupId, patchRequest);
             return response.getStatus() == 200;

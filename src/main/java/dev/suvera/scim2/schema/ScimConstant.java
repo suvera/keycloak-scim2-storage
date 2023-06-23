@@ -18,6 +18,7 @@ public class ScimConstant {
 
     public static final String URN_USER = "urn:ietf:params:scim:schemas:core:2.0:User";
     public static final String URN_GROUP = "urn:ietf:params:scim:schemas:core:2.0:Group";
+    public static final String URN_ADINSURE_GROUP = "urn:ietf:params:scim:schemas:extension:adinsure:2.0:Group";
     public static final String URN_ENTERPRISE_USER
             = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
 
