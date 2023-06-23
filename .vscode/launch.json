@@ -6,6 +6,14 @@
     "configurations": [
         {
             "type": "java",
+            "name": "Debug docker (Attach)",
+            "projectName": "scim2-storage",
+            "request": "attach",
+            "hostName": "host.docker.internal",
+            "port": 8787
+        },
+        {
+            "type": "java",
             "name": "Debug (Attach)",
             "projectName": "scim2-storage",
             "request": "attach",
