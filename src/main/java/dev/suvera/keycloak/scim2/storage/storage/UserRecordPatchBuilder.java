@@ -77,7 +77,7 @@ public class UserRecordPatchBuilder {
                 ScimConstant.URN_ADINSURE_USER + ":partyCode");
         addListValueOperations(patchRequest, originalClaims, modifiedClaims,
                 t -> t.getAttributeKey(), v -> v.getAttributeValue(),
-                ScimConstant.URN_ADINSURE_USER + ":claims[type eq %s].value");
+                ScimConstant.URN_ADINSURE_USER + ":claims[type eq %s].value", false);
 
         addListValueOperations(patchRequest, originalRecord.getEmails(), modifiedRecord.getEmails(), t -> t.getType(),
                 v -> v.getValue(), "emails[type eq %s].value");
@@ -91,6 +91,11 @@ public class UserRecordPatchBuilder {
 
     private static <T> void addListValueOperations(PatchRequest<UserRecord> patch, List<T> values1, List<T> values2,
             Function<T, Object> typeProp, Function<T, Object> valueProp, String path) {
+        addListValueOperations(patch, values1, values2, typeProp, valueProp, path, true);
+    }
+
+    private static <T> void addListValueOperations(PatchRequest<UserRecord> patch, List<T> values1, List<T> values2,
+            Function<T, Object> typeProp, Function<T, Object> valueProp, String path, boolean treatEmptyAsNull) {
         if (values2 != null) {
             for (T val2 : values2) {
                 T existingEntry = null;
@@ -106,7 +111,7 @@ public class UserRecordPatchBuilder {
                 }
 
                 addOperation(patch, existingEntry == null ? null : valueProp.apply(existingEntry),
-                        valueProp.apply(val2), String.format(path, typeProp.apply(val2)));
+                        valueProp.apply(val2), String.format(path, typeProp.apply(val2)), treatEmptyAsNull);
             }
         }
 
@@ -117,20 +122,28 @@ public class UserRecordPatchBuilder {
     }
 
     private static void addOperation(PatchRequest<UserRecord> patch, Object val1, Object val2, String path) {
-        if (isNullOrEmpty(val1)) {
-            if (!isNullOrEmpty(val2)) {
+        addOperation(patch, val1, val2, path, true);
+    }
+
+    private static void addOperation(PatchRequest<UserRecord> patch, Object val1, Object val2, String path,
+            boolean treatEmptyAsNull) {
+        if (isEmptyValue(val1, treatEmptyAsNull)) {
+            if (!isEmptyValue(val2, treatEmptyAsNull)) {
                 patch.addOperation(PatchOp.ADD, path, val2);
             }
         } else {
-            if (isNullOrEmpty(val2)) {
-                // workaround for bug in MS SCIM , value must be provided so we are providing "
-                // "
+            if (isEmptyValue(val2, treatEmptyAsNull)) {
                 patch.addOperation(PatchOp.REMOVE, path, val2);
             } else if (!val1.equals(val2)) {
                 patch.addOperation(PatchOp.REPLACE, path, val2);
             }
         }
+    }
 
+    private static boolean isEmptyValue(Object val, boolean treatEmptyAsNull) {
+        return treatEmptyAsNull
+                ? isNullOrEmpty(val)
+                : (val == null);
     }
 
     private static boolean isNullOrEmpty(Object val) {

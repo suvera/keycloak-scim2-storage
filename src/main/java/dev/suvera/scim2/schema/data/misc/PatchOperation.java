@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
  */
 @SuppressWarnings("unused")
 @Data
-@JsonInclude(JsonInclude.Include.NON_EMPTY)
+@JsonInclude(JsonInclude.Include.ALWAYS)
 @NoArgsConstructor
 @AllArgsConstructor
 public class PatchOperation {
