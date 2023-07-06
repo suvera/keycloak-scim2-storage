@@ -377,22 +377,22 @@ public class ScimClient2 {
             return;
         }
 
-        GroupRecord group = null;
+        GroupRecord originalGroupRecord = null;
         try {
-            group = findGroupByGroupName(scimGroup.getGroupModel().getName());
+            originalGroupRecord = findGroupByGroupName(scimGroup.getGroupModel().getName());
         } catch (ScimException e) {
-            group = null;
+            originalGroupRecord = null;
         }
 
-        if (group == null) {
+        if (originalGroupRecord == null) {
             createGroup(scimGroup);
         } else {
             if (scimGroup.getExternalId() == null) {
                 // if there is no external id, just set it and do not replace group data
-                scimGroup.setExternalId((group.getId()));
+                scimGroup.setExternalId((originalGroupRecord.getId()));
                 // TODO: maybe we need to patch group here
             } else {
-                updateGroup(scimGroup, group, groupManagersExternalIds, substituteUsers);
+                updateGroup(scimGroup, originalGroupRecord, groupManagersExternalIds, substituteUsers);
             }
         }
     }
@@ -458,7 +458,7 @@ public class ScimClient2 {
         groupModel.setExternalId(groupRecord.getId());
     }
 
-    private void updateGroup(ScimGroupAdapter groupModel, GroupRecord groupRecord,
+    private void updateGroup(ScimGroupAdapter groupModel, GroupRecord originalGroupRecord,
             List<String> groupManagersExternalIds, List<SubstituteUser> substituteUsers) throws ScimException {
         String externalGroupId = groupModel.getExternalId();
 
@@ -513,16 +513,21 @@ public class ScimClient2 {
             return;
         }
 
-        String id = tryToSetExternalGroupIdFromOriginalGroup(groupModel.getGroupModel().getName(), groupModel);
+        String externalId = groupModel.getExternalId();
+        if (externalId == null || externalId.isEmpty()) {
+            externalId = tryToSetExternalGroupIdFromOriginalGroup(groupModel.getGroupModel().getName(), groupModel);
+        }
 
-        if (id == null) {
+        if (externalId == null) {
             log.infof("Group %s does not exist in the SCIM2 provider", groupModel.getGroupModel().getName());
             return;
         }
 
-        GroupRecord grp = scimService.readGroup(id);
-        updateGroupName(groupModel, grp);
-        updateGroup(groupModel, grp, groupManagersExternalIds, substituteUsers);
+        GroupRecord originalGroupRecord = scimService.readGroup(externalId);
+        if (originalGroupRecord != null) {
+            updateGroupName(groupModel, originalGroupRecord);
+            updateGroup(groupModel, originalGroupRecord, groupManagersExternalIds, substituteUsers);
+        }
     }
 
     public boolean joinGroup(ScimGroupAdapter groupModel, ScimUserAdapter userModel,

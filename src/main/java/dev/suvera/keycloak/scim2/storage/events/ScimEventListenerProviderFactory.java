@@ -12,7 +12,7 @@ public class ScimEventListenerProviderFactory implements EventListenerProviderFa
 
     @Override
     public EventListenerProvider create(KeycloakSession session) {
-        return new ScimEventListener(JobEnqueuerFactory.create(session));
+        return new ScimEventListener(session, JobEnqueuerFactory.create(session));
     }
 
     @Override
