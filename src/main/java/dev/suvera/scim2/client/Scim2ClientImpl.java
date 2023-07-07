@@ -329,12 +329,12 @@ public class Scim2ClientImpl implements Scim2Client {
                 request
         ));
 
-        protocol.validateResponse(
-                ScimOperation.PATCH,
-                response,
-                resourceType,
-                null
-        );
+        // protocol.validateResponse(
+        //         ScimOperation.PATCH,
+        //         response,
+        //         resourceType,
+        //         null
+        // );
 
         PatchResponse<T> patchResponse = new PatchResponse<>(request.getRecordType());
 
@@ -363,12 +363,12 @@ public class Scim2ClientImpl implements Scim2Client {
                 request
         ));
 
-        protocol.validateResponse(
-                ScimOperation.SEARCH,
-                response,
-                resourceType,
-                cls
-        );
+        // protocol.validateResponse(
+        //         ScimOperation.SEARCH,
+        //         response,
+        //         resourceType,
+        //         cls
+        // );
 
         ListResponse<T> listResponse;
         try {
@@ -427,12 +427,12 @@ public class Scim2ClientImpl implements Scim2Client {
                 request
         ));
 
-        protocol.validateResponse(
-                ScimOperation.SEARCH,
-                response,
-                null,
-                null
-        );
+        // protocol.validateResponse(
+        //         ScimOperation.SEARCH,
+        //         response,
+        //         null,
+        //         null
+        // );
 
         try {
             return objectMapper.readValue(response.getBody(), MixedListResponse.class);
@@ -452,12 +452,12 @@ public class Scim2ClientImpl implements Scim2Client {
                 request
         ));
 
-        protocol.validateResponse(
-                ScimOperation.BULK,
-                response,
-                null,
-                null
-        );
+        // protocol.validateResponse(
+        //         ScimOperation.BULK,
+        //         response,
+        //         null,
+        //         null
+        // );
 
         try {
             return objectMapper.readValue(response.getBody(), BulkResponse.class);
