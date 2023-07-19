@@ -20,8 +20,6 @@ import java.util.Map;
 public class GroupRecord extends BaseRecord {
     private String displayName;
     private List<GroupMember> members;
-    private List<GroupManager> groupManagers;
-    private List<GroupSubstituteUser> substituteUsers;
 
     @JsonIgnore
     private Map<String, ExtensionRecord> extensions = new HashMap<>();
@@ -36,30 +34,9 @@ public class GroupRecord extends BaseRecord {
         return extensions;
     }
 
-
     @Data
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     public static class GroupMember {
-        private String type;
-        private String display;
-        private String value;
-        @JsonProperty("$ref")
-        private String ref;
-    }
-
-    @Data
-    @JsonInclude(JsonInclude.Include.NON_EMPTY)
-    public static class GroupManager {
-        private String type;
-        private String display;
-        private String value;
-        @JsonProperty("$ref")
-        private String ref;
-    }
-
-    @Data
-    @JsonInclude(JsonInclude.Include.NON_EMPTY)
-    public static class GroupSubstituteUser {
         private String type;
         private String display;
         private String value;

@@ -3,7 +3,6 @@ package dev.suvera.scim2.schema.data;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableSet;
 import dev.suvera.scim2.schema.ScimConstant;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
