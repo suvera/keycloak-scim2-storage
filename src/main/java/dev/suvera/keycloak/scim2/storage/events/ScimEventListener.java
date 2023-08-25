@@ -43,110 +43,100 @@ public class ScimEventListener implements EventListenerProvider {
 
     @Override
     public void onEvent(AdminEvent event, boolean includeRepresentation) {
-        if (event.getResourceType() == ResourceType.USER) {
-            if (event.getOperationType() == OperationType.CREATE) {
-                logEventHandlingMessage(event);
+        ResourceType resourceType = event.getResourceType();
 
-                JsonNode representationJson = readJsonString(event.getRepresentation());
-
-                if (representationJson != null) {
-
-                    jobQueue.enqueueUserCreateJob(
-                            event.getRealmId(),
-                            representationJson.get("username").asText());
-                }
-            } else if (event.getOperationType() == OperationType.UPDATE) {
-                logEventHandlingMessage(event);
-
-                JsonNode representationJson = readJsonString(event.getRepresentation());
-
-                if (representationJson != null) {
-                    jobQueue.enqueueUserCreateJob(
-                            event.getRealmId(),
-                            representationJson.get("federationLink").asText(),
-                            representationJson.get("id").asText());
-                }
+        if (resourceType == ResourceType.USER) {
+            handleUserEvent(event);
+        } else if (resourceType == ResourceType.GROUP) {
+            handleGroupEvent(event);
+        } else if (resourceType == ResourceType.GROUP_MEMBERSHIP) {
+            handleGroupMembershipEvent(event);
+        } else if (resourceType == ResourceType.REALM) {
+            String resourcePath = event.getResourcePath();
+            if (resourcePath != null && resourcePath.startsWith("group", 0)) {
+                handleRealmGroupEvent(event);
             }
         }
+    }
 
-        else if (event.getResourceType() == ResourceType.GROUP) {
-            if (event.getOperationType() == OperationType.CREATE) {
-                logEventHandlingMessage(event);
+    private void handleUserEvent(AdminEvent event) {
+        OperationType operationType = event.getOperationType();
 
-                JsonNode representationJson = readJsonString(event.getRepresentation());
-
-                if (representationJson != null) {
-                    jobQueue.enqueueGroupCreateJob(
-                            event.getRealmId(),
-                            representationJson.get("id").asText());
-                }
-            }
-
-            else if (event.getOperationType() == OperationType.UPDATE) {
-                logEventHandlingMessage(event);
-
-                JsonNode representationJson = readJsonString(event.getRepresentation());
-
-                if (representationJson != null) {
-                    jobQueue.enqueueGroupUpdateJob(
-                            event.getRealmId(),
-                            representationJson.get("id").asText());
-                }
-            }
-
-            else if (event.getOperationType() == OperationType.DELETE) {
-                logEventHandlingMessage(event);
-
-                // expected resource path: "groups/118e0637-d562-40ae-a357-e0b8bd71be6d"
-                String[] splittedPath = event.getResourcePath().split("/");
-
-                jobQueue.enqueueGroupDeleteJob(
-                        event.getRealmId(),
-                        splittedPath[splittedPath.length - 1]);
-            }
-        }
-
-        else if (event.getResourceType() == ResourceType.GROUP_MEMBERSHIP) {
-            if (event.getOperationType() == OperationType.CREATE) {
-                logEventHandlingMessage(event);
-
-                // expected resource path:
-                // "users/f420cd38-d492-4ba8-a452-52f662d171a3/groups/118e0637-d562-40ae-a357-e0b8bd71be6d"
-                String[] splittedPath = event.getResourcePath().split("/");
-                String userId = splittedPath[1];
-                String groupId = splittedPath[splittedPath.length - 1];
-
-                jobQueue.enqueueGroupJoinJob(
-                        event.getRealmId(),
-                        groupId,
-                        userId);
-            }
-
-            else if (event.getOperationType() == OperationType.DELETE) {
-                logEventHandlingMessage(event);
-
-                // expected resource path:
-                // "users/f420cd38-d492-4ba8-a452-52f662d171a3/groups/118e0637-d562-40ae-a357-e0b8bd71be6d"
-                String[] splittedPath = event.getResourcePath().split("/");
-                String userId = splittedPath[1];
-                String groupId = splittedPath[splittedPath.length - 1];
-
-                jobQueue.enqueueGroupLeaveJob(
-                        event.getRealmId(),
-                        groupId,
-                        userId);
-            }
-        }
-
-        if (event.getResourceType() == ResourceType.REALM && event.getResourcePath().startsWith("groups", 0)) {
+        if (operationType == OperationType.CREATE || operationType == OperationType.UPDATE) {
             logEventHandlingMessage(event);
 
-            String groupJsonString = event.getRepresentation();
-            try {
-                groupMigrationHandler.handleGroup(event.getRealmId(), groupJsonString);
-            } catch (Exception e) {
-                log.errorf(e, "Error while handling migration of the group [%s]: %s", groupJsonString, e.getMessage());
+            JsonNode representationJson = readJsonString(event.getRepresentation());
+
+            if (representationJson != null) {
+                JsonNode usernameNode = representationJson.get("username");
+                JsonNode federationLinkNode = representationJson.get("federationLink");
+                JsonNode idNode = representationJson.get("id");
+
+                if (idNode != null) {
+                    if (operationType == OperationType.CREATE && usernameNode != null) {
+                        jobQueue.enqueueUserCreateJob(event.getRealmId(), usernameNode.asText());
+                    } else if (operationType == OperationType.UPDATE && federationLinkNode != null) {
+                        jobQueue.enqueueUserCreateJob(event.getRealmId(), federationLinkNode.asText(), idNode.asText());
+                    }
+                }
             }
+        }
+    }
+
+    private void handleGroupEvent(AdminEvent event) {
+        OperationType operationType = event.getOperationType();
+
+        logEventHandlingMessage(event);
+        JsonNode representationJson = readJsonString(event.getRepresentation());
+
+        if (representationJson != null) {
+            JsonNode groupId = representationJson.get("id");
+
+            if (groupId != null) {
+                if (operationType == OperationType.CREATE) {
+                    jobQueue.enqueueGroupCreateJob(event.getRealmId(), groupId.asText());
+                } else if (operationType == OperationType.UPDATE) {
+                    jobQueue.enqueueGroupUpdateJob(event.getRealmId(), groupId.asText());
+                } else if (operationType == OperationType.DELETE) {
+                    handleGroupDeleteEvent(event, groupId.asText());
+                }
+            }
+        }
+    }
+
+    private void handleGroupDeleteEvent(AdminEvent event, String groupId) {
+        logEventHandlingMessage(event);
+        // expected resource path: "groups/118e0637-d562-40ae-a357-e0b8bd71be6d"
+        String[] splittedPath = event.getResourcePath().split("/");
+
+        jobQueue.enqueueGroupDeleteJob(event.getRealmId(), splittedPath[splittedPath.length - 1]);
+    }
+
+    private void handleGroupMembershipEvent(AdminEvent event) {
+        OperationType operationType = event.getOperationType();
+
+        logEventHandlingMessage(event);
+        // expected resource path:
+        // "users/f420cd38-d492-4ba8-a452-52f662d171a3/groups/118e0637-d562-40ae-a357-e0b8bd71be6d"
+        String[] splittedPath = event.getResourcePath().split("/");
+        String userId = splittedPath[1];
+        String groupId = splittedPath[splittedPath.length - 1];
+
+        if (operationType == OperationType.CREATE) {
+            jobQueue.enqueueGroupJoinJob(event.getRealmId(), groupId, userId);
+        } else if (operationType == OperationType.DELETE) {
+            jobQueue.enqueueGroupLeaveJob(event.getRealmId(), groupId, userId);
+        }
+    }
+
+    private void handleRealmGroupEvent(AdminEvent event) {
+        logEventHandlingMessage(event);
+        String groupJsonString = event.getRepresentation();
+
+        try {
+            groupMigrationHandler.handleGroup(event.getRealmId(), groupJsonString);
+        } catch (Exception e) {
+            log.errorf(e, "Error while handling migration of the group [%s]: %s", groupJsonString, e.getMessage());
         }
     }
 

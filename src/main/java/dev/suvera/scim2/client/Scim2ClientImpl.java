@@ -25,6 +25,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.util.*;
 
 import static dev.suvera.scim2.schema.ScimConstant.*;
@@ -33,7 +34,7 @@ import static dev.suvera.scim2.schema.ScimConstant.*;
  * author: suvera
  * date: 10/17/2020 1:48 PM
  */
-@SuppressWarnings({"unused", "FieldCanBeLocal"})
+@SuppressWarnings({ "unused", "FieldCanBeLocal" })
 @Data
 public class Scim2ClientImpl implements Scim2Client {
     private final static Logger log = LogManager.getLogger(Scim2ClientImpl.class);
@@ -52,12 +53,11 @@ public class Scim2ClientImpl implements Scim2Client {
     }
 
     protected Scim2ClientImpl(
-        String endPoint,
-        OkHttpClient client,
-        String spConfigJson,
-        String resourceTypesJson,
-        String schemasJson
-    ) throws ScimException {
+            String endPoint,
+            OkHttpClient client,
+            String spConfigJson,
+            String resourceTypesJson,
+            String schemasJson) throws ScimException {
         this.spConfigJson = spConfigJson;
         this.resourceTypesJson = resourceTypesJson;
         this.schemasJson = schemasJson;
@@ -99,7 +99,8 @@ public class Scim2ClientImpl implements Scim2Client {
             rtResponse = ScimResponse.of(doRequest(HttpMethod.GET, PATH_RESOURCETYPES, null));
             if (rtResponse.getCode() != 200) {
                 log.error("Response code for " + PATH_RESOURCETYPES + " is not 200, but " + rtResponse.getCode());
-                throw new ScimException("Response code for " + PATH_RESOURCETYPES + " is not 200, but " + rtResponse.getCode());
+                throw new ScimException(
+                        "Response code for " + PATH_RESOURCETYPES + " is not 200, but " + rtResponse.getCode());
             } else if (rtResponse.getBody() == null || rtResponse.getBody().isEmpty()) {
                 log.error("Response Body for " + PATH_RESOURCETYPES + " is empty");
                 throw new ScimException("Response Body is empty for " + PATH_RESOURCETYPES);
@@ -121,7 +122,8 @@ public class Scim2ClientImpl implements Scim2Client {
             schemasResponse = ScimResponse.of(doRequest(HttpMethod.GET, PATH_SCHEMAS, null));
             if (schemasResponse.getCode() != 200) {
                 log.error("Response code for " + PATH_SCHEMAS + " is not 200, but " + schemasResponse.getCode());
-                throw new ScimException("Response code for " + PATH_SCHEMAS + " is not 200, but " + schemasResponse.getCode());
+                throw new ScimException(
+                        "Response code for " + PATH_SCHEMAS + " is not 200, but " + schemasResponse.getCode());
             } else if (schemasResponse.getBody() == null || schemasResponse.getBody().isEmpty()) {
                 log.error("Response Body for " + PATH_SCHEMAS + " is empty");
                 throw new ScimException("Response Body is empty for " + PATH_SCHEMAS);
@@ -145,8 +147,7 @@ public class Scim2ClientImpl implements Scim2Client {
     private Response doRequest(
             HttpMethod method,
             String path,
-            Object payload
-    ) throws ScimException {
+            Object payload) throws ScimException {
         if (path == null) {
             throw new ScimException("Client Exception, empty Path");
         }
@@ -220,17 +221,18 @@ public class Scim2ClientImpl implements Scim2Client {
         ScimResponse response = ScimResponse.of(doRequest(
                 HttpMethod.POST,
                 resourceType.getEndPoint(),
-                record
-        ));
+                record));
 
-        /*protocol.validateResponse(
-                ScimOperation.CREATE,
-                response,
-                resourceType,
-                null
-        );*/
+        /*
+         * protocol.validateResponse(
+         * ScimOperation.CREATE,
+         * response,
+         * resourceType,
+         * null
+         * );
+         */
 
-        //noinspection unchecked
+        // noinspection unchecked
         return (T) mapToObject(response.getBody(), record.getClass());
     }
 
@@ -246,23 +248,23 @@ public class Scim2ClientImpl implements Scim2Client {
     public <T extends BaseRecord> T read(
             String id,
             Class<T> cls,
-            ResourceType resourceType
-    ) throws ScimException {
+            ResourceType resourceType) throws ScimException {
 
         String path = resourceType.getEndPoint();
         path = StringUtils.stripEnd(path, " /");
         ScimResponse response = ScimResponse.of(doRequest(
                 HttpMethod.GET,
                 path + "/" + id,
-                null
-        ));
+                null));
 
-        /*protocol.validateResponse(
-                ScimOperation.READ,
-                response,
-                resourceType,
-                null
-        );*/
+        /*
+         * protocol.validateResponse(
+         * ScimOperation.READ,
+         * response,
+         * resourceType,
+         * null
+         * );
+         */
 
         return mapToObject(response.getBody(), cls);
     }
@@ -271,24 +273,22 @@ public class Scim2ClientImpl implements Scim2Client {
     public <T extends BaseRecord> T replace(
             String id,
             T record,
-            ResourceType resourceType
-    ) throws ScimException {
+            ResourceType resourceType) throws ScimException {
         String path = resourceType.getEndPoint();
         path = StringUtils.stripEnd(path, " /");
         ScimResponse response = ScimResponse.of(doRequest(
                 HttpMethod.PUT,
                 path + "/" + id,
-                record
-        ));
+                record));
 
         // protocol.validateResponse(
-        //         ScimOperation.REPLACE,
-        //         response,
-        //         resourceType,
-        //         null
+        // ScimOperation.REPLACE,
+        // response,
+        // resourceType,
+        // null
         // );
 
-        //noinspection unchecked
+        // noinspection unchecked
         return (T) mapToObject(response.getBody(), record.getClass());
     }
 
@@ -299,23 +299,23 @@ public class Scim2ClientImpl implements Scim2Client {
         ScimResponse response = ScimResponse.of(doRequest(
                 HttpMethod.DELETE,
                 path + "/" + id,
-                null
-        ));
+                null));
 
-        /*protocol.validateResponse(
-                ScimOperation.DELETE,
-                response,
-                resourceType,
-                null
-        );*/
+        /*
+         * protocol.validateResponse(
+         * ScimOperation.DELETE,
+         * response,
+         * resourceType,
+         * null
+         * );
+         */
     }
 
     @Override
     public <T extends BaseRecord> PatchResponse<T> patch(
             String id,
             PatchRequest<T> request,
-            ResourceType resourceType
-    ) throws ScimException {
+            ResourceType resourceType) throws ScimException {
 
         if (!protocol.getSp().getPatch().getSupported()) {
             throw new ScimException("Patch Operation is not supported by Service Provider");
@@ -326,23 +326,25 @@ public class Scim2ClientImpl implements Scim2Client {
         ScimResponse response = ScimResponse.of(doRequest(
                 HttpMethod.PATCH,
                 path + "/" + id,
-                request
-        ));
+                request));
 
         // protocol.validateResponse(
-        //         ScimOperation.PATCH,
-        //         response,
-        //         resourceType,
-        //         null
+        // ScimOperation.PATCH,
+        // response,
+        // resourceType,
+        // null
         // );
 
         PatchResponse<T> patchResponse = new PatchResponse<>(request.getRecordType());
 
         patchResponse.setStatus(response.getCode());
-        try {
-            patchResponse.setResource(mapToObject(response.getBody(), request.getRecordType()));
-        } catch (ScimException e) {
-            log.error("Patch request has no Resource received. {}", e.getMessage());
+
+        if (response.getCode() != HttpURLConnection.HTTP_NO_CONTENT) {
+            try {
+                patchResponse.setResource(mapToObject(response.getBody(), request.getRecordType()));
+            } catch (ScimException e) {
+                log.error("Patch request has no Resource received. {}", e.getMessage());
+            }
         }
 
         return patchResponse;
@@ -352,28 +354,25 @@ public class Scim2ClientImpl implements Scim2Client {
     public <T extends BaseRecord> ListResponse<T> search(
             SearchRequest request,
             Class<T> cls,
-            ResourceType resourceType
-    ) throws ScimException {
+            ResourceType resourceType) throws ScimException {
         String path = resourceType.getEndPoint();
         path = StringUtils.stripEnd(path, " /");
 
         ScimResponse response = ScimResponse.of(doRequest(
                 HttpMethod.POST,
                 path + PATH_SEARCH,
-                request
-        ));
+                request));
 
         // protocol.validateResponse(
-        //         ScimOperation.SEARCH,
-        //         response,
-        //         resourceType,
-        //         cls
+        // ScimOperation.SEARCH,
+        // response,
+        // resourceType,
+        // cls
         // );
 
         ListResponse<T> listResponse;
         try {
-            JavaType type = objectMapper.getTypeFactory().
-                    constructParametricType(ListResponse.class, cls);
+            JavaType type = objectMapper.getTypeFactory().constructParametricType(ListResponse.class, cls);
 
             listResponse = objectMapper.readValue(response.getBody(), type);
         } catch (JsonProcessingException e) {
@@ -388,28 +387,27 @@ public class Scim2ClientImpl implements Scim2Client {
             String property,
             String value,
             Class<T> cls,
-            ResourceType resourceType
-    ) throws ScimException {
+            ResourceType resourceType) throws ScimException {
         String path = resourceType.getEndPoint();
         path = StringUtils.stripEnd(path, " /");
 
         ScimResponse response = ScimResponse.of(doRequest(
                 HttpMethod.GET,
                 path + "?filter=" + property + "+eq+%22" + value + "%22",
-                null
-        ));
+                null));
 
-        /*protocol.validateResponse(
-                ScimOperation.SEARCH,
-                response,
-                resourceType,
-                cls
-        );*/
+        /*
+         * protocol.validateResponse(
+         * ScimOperation.SEARCH,
+         * response,
+         * resourceType,
+         * cls
+         * );
+         */
 
         ListResponse<T> listResponse;
         try {
-            JavaType type = objectMapper.getTypeFactory().
-                    constructParametricType(ListResponse.class, cls);
+            JavaType type = objectMapper.getTypeFactory().constructParametricType(ListResponse.class, cls);
 
             listResponse = objectMapper.readValue(response.getBody(), type);
         } catch (JsonProcessingException e) {
@@ -424,14 +422,13 @@ public class Scim2ClientImpl implements Scim2Client {
         ScimResponse response = ScimResponse.of(doRequest(
                 HttpMethod.POST,
                 PATH_SEARCH,
-                request
-        ));
+                request));
 
         // protocol.validateResponse(
-        //         ScimOperation.SEARCH,
-        //         response,
-        //         null,
-        //         null
+        // ScimOperation.SEARCH,
+        // response,
+        // null,
+        // null
         // );
 
         try {
@@ -449,14 +446,13 @@ public class Scim2ClientImpl implements Scim2Client {
         ScimResponse response = ScimResponse.of(doRequest(
                 HttpMethod.POST,
                 PATH_BULK,
-                request
-        ));
+                request));
 
         // protocol.validateResponse(
-        //         ScimOperation.BULK,
-        //         response,
-        //         null,
-        //         null
+        // ScimOperation.BULK,
+        // response,
+        // null,
+        // null
         // );
 
         try {
@@ -502,7 +498,7 @@ public class Scim2ClientImpl implements Scim2Client {
                 log.error("Input is not a valid object structure");
                 valid = false;
             }
-        } catch(JsonProcessingException e) {
+        } catch (JsonProcessingException e) {
             log.error("Json Processing error ", e);
             valid = false;
         } catch (Exception e) {

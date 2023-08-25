@@ -75,14 +75,18 @@ public class JobEnqueuer {
     }
 
     public void enqueueUserCreateJob(RealmModel realmModel, ComponentModel componentModel, UserModel userModel) {
-        ScimSyncJobQueue entity = createJobQueue(realmModel.getId());
-        entity.setAction(ScimSyncJob.CREATE_USER);
-        entity.setComponentId(componentModel.getId());
-        entity.setUserId(userModel.getId());
+        if (componentModel == null) {
+            log.infof("User with id %s is not bound to a federation plugin, will skip creation of the user update/create sync event.", userModel.getId());
+        } else {
+            ScimSyncJobQueue entity = createJobQueue(realmModel.getId());
+            entity.setAction(ScimSyncJob.CREATE_USER);
+            entity.setComponentId(componentModel.getId());
+            entity.setUserId(userModel.getId());
 
-        run(entity, realmModel, componentModel, userModel);
+            run(entity, realmModel, componentModel, userModel);
 
-        log.infof("User with id %s scheduled to be added on SCIM", userModel.getId());
+            log.infof("User with id %s scheduled to be added on SCIM", userModel.getId());
+        }
     }
 
     public void enqueueUserCreateJob(String realmId, String componentId, String userId) {
@@ -97,15 +101,19 @@ public class JobEnqueuer {
     }
 
     public void enqueueUserDeleteJob(RealmModel realmModel, ComponentModel componentModel, String userId, String externalId) {
-        ScimSyncJobQueue entity = createJobQueue(realmModel.getId());
-        entity.setAction(ScimSyncJob.DELETE_USER);
-        entity.setComponentId(componentModel.getId());
-        entity.setUserId(userId);
-        entity.setExternalId(externalId);
+        if (componentModel == null) {
+            log.infof("User with id %s is not bound to a federation plugin, will skip creation of the user delete sync.", userId);
+        } else {
+            ScimSyncJobQueue entity = createJobQueue(realmModel.getId());
+            entity.setAction(ScimSyncJob.DELETE_USER);
+            entity.setComponentId(componentModel.getId());
+            entity.setUserId(userId);
+            entity.setExternalId(externalId);
 
-        run(entity, realmModel, componentModel, null);
+            run(entity, realmModel, componentModel, null);
 
-        log.infof("User with id %s scheduled to be deleted on SCIM", userId);
+            log.infof("User with id %s scheduled to be deleted on SCIM", userId);
+        }
     }
 
     public void enqueueGroupCreateJob(String realmId, String groupId) {

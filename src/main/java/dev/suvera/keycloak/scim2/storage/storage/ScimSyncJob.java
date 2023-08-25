@@ -333,6 +333,16 @@ public class ScimSyncJob {
             userModel = session.userLocalStorage().getUserById(realmModel, job.getUserId());
         }
 
+        if (userModel == null) {
+            log.infof("User with id %s cannot be found. Canceling leave/group action.", job.getUserId());
+            return new LeaveOrJoinGroupResult(false, null, null, null, null);
+        }
+
+        if (userModel != null && userModel.getFederationLink() == null) {
+            log.infof("User with username %s does not have a federation link. Canceling leave/group action.", userModel.getUsername());
+            return new LeaveOrJoinGroupResult(false, null, null, null, null);
+        }
+
         if (componentModel == null) {
             componentModel = realmModel.getComponent(userModel.getFederationLink());
         }
