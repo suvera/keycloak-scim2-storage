@@ -136,7 +136,7 @@ public class ScimSyncJob {
         }
 
         if (userModel == null) {
-            log.info("could not find user by id: " + job.getUserId());
+            log.warnf("Cannot create external user. Could not find user by id: %s", job.getUserId());
             return;
         }
 
@@ -147,7 +147,7 @@ public class ScimSyncJob {
                 .orElse(null);
 
         if (componentEntity == null) {
-            log.info("Cannot find appropriate component.");
+            log.error("Could not create external user. Cannot find appropriate component.");
             return;
         }
 
@@ -161,17 +161,17 @@ public class ScimSyncJob {
         }
 
         if (userModel == null) {
-            log.info("could not find user by id: " + job.getUserId());
+            log.warnf("Could not create user. Could not find user by id: %s", job.getUserId());
             return;
         }
 
         if (userModel.getFederationLink() == null) {
-            log.infof("User with username %s does not have a federation link.", userModel.getUsername());
+            log.warnf("Could not create user. User with username %s does not have a federation link.", userModel.getUsername());
             return;
         }
 
         if (job.getComponentId() != null && !job.getComponentId().equals(userModel.getFederationLink())) {
-            log.infof("User with username %s is not managed by federation plugin with id %s.", userModel.getUsername(),
+            log.warnf("Could not create user. User with username %s is not managed by federation plugin with id %s.", userModel.getUsername(),
                     job.getComponentId());
             return;
         }
@@ -181,7 +181,7 @@ public class ScimSyncJob {
         }
 
         if (!componentModel.getProviderId().equals(SkssStorageProviderFactory.PROVIDER_ID)) {
-            log.info("Federated user component is not of the correct type.");
+            log.errorf("Could not create user %s. Federated user component is not of the correct type.", userModel.getUsername());
             return;
         }
 
@@ -213,7 +213,7 @@ public class ScimSyncJob {
             throws ScimException {
         if (componentModel == null) {
             if (job.getComponentId() == null) {
-                log.info("Component id is needed to delete user");
+                log.error("Appropriate component is needed to delete user.");
                 return;
             }
 
@@ -221,7 +221,7 @@ public class ScimSyncJob {
         }
 
         if (!componentModel.getProviderId().equals(SkssStorageProviderFactory.PROVIDER_ID)) {
-            log.info("Federated user component is not of the correct type.");
+            log.error("Could not delete user. Federated user component is not of the correct type.");
             return;
         }
 
@@ -238,7 +238,7 @@ public class ScimSyncJob {
         }
 
         if (groupModel == null) {
-            log.info("Could not find group by id: " + job.getGroupId());
+            log.warn("Create/update group failed. Could not find group by id: " + job.getGroupId());
             return;
         }
 
@@ -334,12 +334,12 @@ public class ScimSyncJob {
         }
 
         if (userModel == null) {
-            log.infof("User with id %s cannot be found. Canceling leave/group action.", job.getUserId());
+            log.warnf("User with id %s cannot be found. Canceling leave/group action.", job.getUserId());
             return new LeaveOrJoinGroupResult(false, null, null, null, null);
         }
 
         if (userModel != null && userModel.getFederationLink() == null) {
-            log.infof("User with username %s does not have a federation link. Canceling leave/group action.", userModel.getUsername());
+            log.warnf("User with username %s does not have a federation link. Canceling leave/group action.", userModel.getUsername());
             return new LeaveOrJoinGroupResult(false, null, null, null, null);
         }
 
@@ -352,7 +352,7 @@ public class ScimSyncJob {
         }
 
         if (groupModel == null) {
-            log.info("Could not find group by id: " + job.getUserId());
+            log.warnf("Could not find group by id: %s. Canceling leave/group action.", job.getUserId());
             return new LeaveOrJoinGroupResult(false, null, null, null, null);
         }
 

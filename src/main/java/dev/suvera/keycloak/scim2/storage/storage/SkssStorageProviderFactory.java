@@ -74,7 +74,7 @@ public class SkssStorageProviderFactory implements UserStorageProviderFactory<Sk
                 .add()
 
                 .property()
-                .label("Version: " + SkssStorageProviderFactory.class.getPackage().getImplementationVersion() + "-11")
+                .label("Version: " + SkssStorageProviderFactory.class.getPackage().getImplementationVersion() + "-12")
                 .helpText("Plugin version")
                 .add()
 

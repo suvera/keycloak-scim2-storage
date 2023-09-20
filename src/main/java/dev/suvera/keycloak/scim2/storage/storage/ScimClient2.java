@@ -283,7 +283,7 @@ public class ScimClient2 {
         UserRecord createdUser = scimService.createUser(scimUser);
 
         userModel.setExternalId(createdUser.getId());
-        log.info("User record successfully sync'd to SKIM service provider. " + createdUser.getId());
+        log.info("User record successfully synced to SCIM service provider. " + createdUser.getId());
     }
 
     public void createOrUpdateUser(ScimUserAdapter scimUser, SynchronizationResult result) throws ScimException {

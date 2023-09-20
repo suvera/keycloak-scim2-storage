@@ -150,6 +150,6 @@ public class ScimEventListener implements EventListenerProvider {
     }
 
     private void logEventHandlingMessage(AdminEvent event) {
-        log.infof("Handling admin event: %s, %s", event.getResourceType(), event.getOperationType());
+        log.debugf("Handling admin event: %s, %s", event.getResourceType(), event.getOperationType());
     }
 }

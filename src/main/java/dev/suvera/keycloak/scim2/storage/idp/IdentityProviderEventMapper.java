@@ -76,7 +76,7 @@ public class IdentityProviderEventMapper implements IdentityProviderMapper {
     @Override
     public void updateBrokeredUserLegacy(KeycloakSession session, RealmModel realm, UserModel user,
             IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
-        log.infof("Updating user with legacy: %s", user.getUsername());
+        log.debugf("Updating user with legacy: %s", user.getUsername());
         JobEnqueuer job = JobEnqueuerFactory.create(session);
         job.enqueueUserCreateJob(realm, user);
     }
@@ -84,7 +84,7 @@ public class IdentityProviderEventMapper implements IdentityProviderMapper {
     @Override
     public void updateBrokeredUser(KeycloakSession session, RealmModel realm, UserModel user,
             IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
-        log.infof("Updating user: %s", user.getUsername());
+        log.debugf("Updating user: %s", user.getUsername());
         JobEnqueuer job = JobEnqueuerFactory.create(session);
         job.enqueueUserCreateJob(realm, user);
     }
