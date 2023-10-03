@@ -10,6 +10,7 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.utils.KeycloakModelUtils;
+import org.keycloak.timer.TimerProvider;
 
 import dev.suvera.keycloak.scim2.storage.jpa.ScimSyncJobQueue;
 
@@ -17,10 +18,12 @@ public class JobEnqueuer {
     private static final Logger log = Logger.getLogger(JobEnqueuer.class);
     private KeycloakSession session;
     private EntityManager em;
+    private TimerProvider timer;
 
     public JobEnqueuer(KeycloakSession session) {
         this.session = session;
         em = session.getProvider(JpaConnectionProvider.class).getEntityManager();
+        timer = session.getProvider(TimerProvider.class);
     }
 
     public void enqueueUserUpdateJob(String realmId, String userId) {
@@ -71,6 +74,26 @@ public class JobEnqueuer {
         if (userModel != null) {
             ComponentModel componentModel = realmModel.getComponent(userModel.getFederationLink());
             enqueueUserCreateJob(realmModel, componentModel, userModel);
+        }
+    }
+
+    public void enqueueUserCreateJob(RealmModel realmModel, ComponentModel componentModel, String userId) {
+        if (componentModel == null) {
+            log.infof("User with id %s is not bound to a federation plugin, will skip creation of the user update/create sync event.", userId);
+        } else {
+            ScimSyncJobQueue entity = createJobQueue(realmModel.getId());
+            entity.setAction(ScimSyncJob.CREATE_USER);
+            entity.setComponentId(componentModel.getId());
+            entity.setUserId(userId);
+
+            em.persist(entity);
+
+            timer.scheduleTask(session -> {
+                run(session, entity, realmModel, componentModel);
+                timer.cancelTask(userId);
+            }, 500, userId);
+
+            log.infof("User with id %s scheduled to be added on SCIM", userId);
         }
     }
 
@@ -222,5 +245,10 @@ public class JobEnqueuer {
     private void run(ScimSyncJobQueue job, RealmModel realmModel, ComponentModel componentModel, UserModel userModel, GroupModel groupModel) {
         ScimSyncJob sync = new ScimSyncJob(session);
         sync.execute(job, realmModel, componentModel, userModel, groupModel);
+    }
+
+    private void run(KeycloakSession session2, ScimSyncJobQueue job, RealmModel realmModel, ComponentModel componentModel) {
+        ScimSyncJob sync = new ScimSyncJob(session2);
+        sync.execute(job, realmModel, componentModel, null);
     }
 }

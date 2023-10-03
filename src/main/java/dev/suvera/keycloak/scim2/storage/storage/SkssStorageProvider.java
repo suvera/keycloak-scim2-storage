@@ -54,7 +54,7 @@ public class SkssStorageProvider implements UserStorageProvider, UserRegistratio
     public UserModel addUser(RealmModel realmModel, String username) {
         UserModel localUser = createAdapter(realmModel, username);
 
-        jobQueue.enqueueUserCreateJob(realmModel, model, localUser);
+        jobQueue.enqueueUserCreateJob(realmModel, model, localUser.getId());
 
         return localUser;
     }
