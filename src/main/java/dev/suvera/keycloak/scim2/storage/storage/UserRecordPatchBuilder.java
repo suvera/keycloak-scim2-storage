@@ -1,8 +1,10 @@
 package dev.suvera.keycloak.scim2.storage.storage;
 
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -11,14 +13,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import dev.suvera.scim2.schema.data.misc.PatchRequest;
 import dev.suvera.scim2.schema.data.user.UserRecord;
-import dev.suvera.scim2.schema.data.user.UserRecord.UserClaim;
+import dev.suvera.scim2.schema.data.user.UserRecord.UserEmail;
+import dev.suvera.scim2.schema.data.user.UserRecord.UserPhoneNumber;
 import dev.suvera.scim2.schema.enums.PatchOp;
 import dev.suvera.scim2.schema.ScimConstant;
 import dev.suvera.scim2.schema.data.ExtensionRecord;
 
 public class UserRecordPatchBuilder {
-    private UserRecordPatchBuilder() {
-        /* static class */ }
+    private UserRecordPatchBuilder() { /* static class */ }
 
     public static PatchRequest<UserRecord> buildPatchRequest(UserRecord modifiedRecord, UserRecord originalRecord) {
         PatchRequest<UserRecord> patchRequest = new PatchRequest<>(UserRecord.class);
@@ -37,56 +39,74 @@ public class UserRecordPatchBuilder {
             patchRequest.addOperation(PatchOp.REPLACE, "active", modifiedRecord.isActive());
         }
 
-        UserClaim modifiedPartyCodeClaim = modifiedRecord.getClaims().stream()
-                .filter(claim -> "PartyCode".equalsIgnoreCase(claim.getAttributeKey()))
-                .findFirst()
-                .orElse(null);
-        String modifiedPartyCode = modifiedPartyCodeClaim != null
-                ? modifiedPartyCodeClaim.getAttributeValue()
-                : null;
-
-        List<UserClaim> modifiedClaims = modifiedRecord.getClaims().stream()
-                .filter(uc -> !uc.getAttributeKey().equalsIgnoreCase("PartyCode"))
-                .collect(Collectors.toList());
-
-        List<UserClaim> originalClaims = new ArrayList<UserClaim>();
-        String originalPartyCode = null;
         ExtensionRecord originalUserExtension = originalRecord.getExtensions().get(ScimConstant.URN_ADINSURE_USER);
-        if (originalUserExtension != null) {
-            JsonNode originalUserExtensionJsonNode = originalUserExtension.asJsonNode();
+        ExtensionRecord modifiedUserExtension = modifiedRecord.getExtensions().get(ScimConstant.URN_ADINSURE_USER);
 
-            JsonNode originalPartyCodeJsonNode = originalUserExtensionJsonNode.get("partyCode");
-            if (originalPartyCodeJsonNode != null && originalPartyCodeJsonNode.isValueNode()) {
-                originalPartyCode = originalPartyCodeJsonNode.asText();
-            }
-
-            JsonNode originalClaimsJsonNode = originalUserExtensionJsonNode.get("claims");
-            if (originalClaimsJsonNode != null && originalClaimsJsonNode.isObject()) {
-                Iterator<Entry<String, JsonNode>> fields = originalClaimsJsonNode.fields();
-                while (fields.hasNext()) {
-                    Entry<String, JsonNode> field = fields.next();
-                    UserClaim userClaim = new UserClaim();
-                    userClaim.setAttributeKey(field.getKey());
-                    userClaim.setAttributeValue(field.getValue().asText());
-                    originalClaims.add(userClaim);
-                }
-            }
-        }
+        String originalPartyCode = extractStringNodeValueFromExtension(originalUserExtension, "partyCode");
+        String modifiedPartyCode = extractStringNodeValueFromExtension(modifiedUserExtension, "partyCode");
 
         addOperation(patchRequest, originalPartyCode, modifiedPartyCode,
                 ScimConstant.URN_ADINSURE_USER + ":partyCode");
-        addListValueOperations(patchRequest, originalClaims, modifiedClaims,
-                t -> t.getAttributeKey(), v -> v.getAttributeValue(),
-                ScimConstant.URN_ADINSURE_USER + ":claims[type eq %s].value", false);
 
-        addListValueOperations(patchRequest, originalRecord.getEmails(), modifiedRecord.getEmails(), t -> t.getType(),
-                v -> v.getValue(), "emails[type eq %s].value");
+        boolean originalBlocked = extractStringNodeValueFromExtension(originalUserExtension, "blocked").equals("true");
+        boolean modifiedBlocked = extractStringNodeValueFromExtension(modifiedUserExtension, "blocked").equals("true");
+
+        addOperation(patchRequest, originalBlocked, modifiedBlocked,
+                ScimConstant.URN_ADINSURE_USER + ":blocked");
+        
+        List<Map.Entry<String, String>> originalClaims = extractObjectAsKeyValueListFromExtension(originalUserExtension, "claims");
+        List<Map.Entry<String, String>> modifiedClaims = extractObjectAsKeyValueListFromExtension(modifiedUserExtension, "claims");
+        
+        addListValueOperations(patchRequest, originalClaims, modifiedClaims,
+                Entry::getKey, Entry::getValue,
+                ScimConstant.URN_ADINSURE_USER + ":claims[type eq %s].value", false);
+        
+        addListValueOperations(patchRequest, originalRecord.getEmails(), modifiedRecord.getEmails(), UserEmail::getType,
+                UserEmail::getValue, "emails[type eq %s].value");
         addListValueOperations(patchRequest, originalRecord.getPhoneNumbers(), modifiedRecord.getPhoneNumbers(),
-                t -> t.getType(), v -> v.getValue(), "phoneNumbers[type eq %s].value");
+                UserPhoneNumber::getType, UserPhoneNumber::getValue, "phoneNumbers[type eq %s].value");
         addListValueOperations(patchRequest, originalRecord.getAddresses(), modifiedRecord.getAddresses(), t -> t,
                 v -> v, "addreses[type eq %s]");
 
         return patchRequest;
+    }
+
+    private static List<Map.Entry<String, String>> extractObjectAsKeyValueListFromExtension(ExtensionRecord userExtension, String fieldName) {
+        List<Map.Entry<String, String>> keyValueList = new ArrayList<>();
+        if (userExtension == null) {
+            return keyValueList;
+        }
+        
+        JsonNode userExtensionJsonNode = userExtension.asJsonNode();
+
+        JsonNode objectJsonNode = userExtensionJsonNode.get(fieldName);
+        if (objectJsonNode != null && objectJsonNode.isObject()) {
+            objectJsonNode.fields().forEachRemaining(field -> {
+                String value = extractStringFromValueNode(field.getValue());
+                if (value != null) {
+                    keyValueList.add(new AbstractMap.SimpleEntry<>(field.getKey(), value));
+                }
+            });
+        }
+
+        return keyValueList;
+    }
+
+    private static String extractStringNodeValueFromExtension(ExtensionRecord userExtension, String fieldName) {
+        if (userExtension == null) {
+            return null;
+        }
+
+        JsonNode userExtensionJsonNode = userExtension.asJsonNode();
+        return extractStringFromValueNode(userExtensionJsonNode.get(fieldName));
+    }
+
+    private static String extractStringFromValueNode(JsonNode jsonNode) {
+        if (jsonNode != null && jsonNode.isValueNode()) {
+            return jsonNode.asText();
+        }
+
+        return null;
     }
 
     private static <T> void addListValueOperations(PatchRequest<UserRecord> patch, List<T> values1, List<T> values2,

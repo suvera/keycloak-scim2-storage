@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -29,6 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import dev.suvera.scim2.client.Scim2Client;
 import dev.suvera.scim2.client.Scim2ClientBuilder;
 import dev.suvera.scim2.schema.ScimConstant;
+import dev.suvera.scim2.schema.data.ExtensionRecord;
 import dev.suvera.scim2.schema.data.group.GroupRecord;
 import dev.suvera.scim2.schema.data.group.GroupRecord.GroupMember;
 import dev.suvera.scim2.schema.data.misc.ListResponse;
@@ -131,21 +133,25 @@ public class ScimClient2 {
 
         user.setUserName(userModel.getUsername());
 
-        List<UserRecord.UserClaim> claims = new ArrayList<>();
         List<String> defaultClaims = Arrays.asList("firstName", "lastName", "username", "email");
+        Map<String, String> claims = new HashMap<>();
 
+        ExtensionRecord er = new ExtensionRecord();
         userModel.getAttributes().forEach((k, v) -> {
-            UserRecord.UserClaim claim = new UserRecord.UserClaim();
-
-            if (!defaultClaims.contains(k)) {
-                claim.setAttributeKey(k);
-                claim.setAttributeValue(v.get(0));
-
-                claims.add(claim);
+            if (k.equalsIgnoreCase("partycode")) {
+                er.setData("partyCode", v.get(0));
+            }
+            else if (k.equalsIgnoreCase("blocked")) {
+                boolean blocked = v.get(0).equals("true");
+                er.setData("blocked", blocked);
+            }
+            else if (!defaultClaims.contains(k)) {
+                claims.put(k, v.get(0));
             }
         });
 
-        user.setClaims(claims);
+        er.setData("claims", claims);
+        user.setExtensions(ScimConstant.URN_ADINSURE_USER, er);
 
         UserRecord.UserName name = new UserRecord.UserName();
         name.setGivenName(userModel.getFirstName() == null ? userModel.getUsername()

@@ -23,7 +23,7 @@ public class ExtensionRecord {
     private final Map<String, Object> record = new HashMap<>();
 
     @JsonAnySetter
-    protected void setData(String key, Object value) {
+    public void setData(String key, Object value) {
         record.put(key, value);
     }
 
