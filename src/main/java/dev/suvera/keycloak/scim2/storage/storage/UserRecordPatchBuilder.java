@@ -2,12 +2,10 @@ package dev.suvera.keycloak.scim2.storage.storage;
 
 import java.util.AbstractMap;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -48,8 +46,17 @@ public class UserRecordPatchBuilder {
         addOperation(patchRequest, originalPartyCode, modifiedPartyCode,
                 ScimConstant.URN_ADINSURE_USER + ":partyCode");
 
-        boolean originalBlocked = extractStringNodeValueFromExtension(originalUserExtension, "blocked").equals("true");
-        boolean modifiedBlocked = extractStringNodeValueFromExtension(modifiedUserExtension, "blocked").equals("true");
+        String extractedOriginalBlocked = extractStringNodeValueFromExtension(originalUserExtension, "blocked");
+        String extractedModifiedBlocked = extractStringNodeValueFromExtension(modifiedUserExtension, "blocked");
+
+        boolean originalBlocked = Boolean.parseBoolean(extractedOriginalBlocked);
+        boolean modifiedBlocked;
+
+        if (isNullOrEmpty(extractedModifiedBlocked)) {
+            modifiedBlocked = originalBlocked;
+        } else {
+            modifiedBlocked = Boolean.parseBoolean(extractedModifiedBlocked);
+        }
 
         addOperation(patchRequest, originalBlocked, modifiedBlocked,
                 ScimConstant.URN_ADINSURE_USER + ":blocked");

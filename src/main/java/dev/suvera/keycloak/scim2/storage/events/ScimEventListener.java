@@ -67,16 +67,17 @@ public class ScimEventListener implements EventListenerProvider {
 
             JsonNode representationJson = readJsonString(event.getRepresentation());
 
+            String userId = event.getResourcePath().split("/")[1];
+
             if (representationJson != null) {
                 JsonNode usernameNode = representationJson.get("username");
                 JsonNode federationLinkNode = representationJson.get("federationLink");
-                JsonNode idNode = representationJson.get("id");
 
-                if (idNode != null) {
+                if (userId != null) {
                     if (operationType == OperationType.CREATE && usernameNode != null) {
                         jobQueue.enqueueUserCreateJob(event.getRealmId(), usernameNode.asText());
                     } else if (operationType == OperationType.UPDATE && federationLinkNode != null) {
-                        jobQueue.enqueueUserCreateJob(event.getRealmId(), federationLinkNode.asText(), idNode.asText());
+                        jobQueue.enqueueUserCreateJob(event.getRealmId(), federationLinkNode.asText(), userId);
                     }
                 }
             }
