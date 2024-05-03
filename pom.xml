@@ -3,39 +3,37 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
-    <parent>
-        <artifactId>keycloak-parent</artifactId>
-        <groupId>org.keycloak</groupId>
-        <version>18.0.2</version>
-    </parent>
-
     <modelVersion>4.0.0</modelVersion>
-    <groupId>dev.suvera.keycloak</groupId>
-    <artifactId>scim2-storage</artifactId>
-    <version>18.0.2</version>
+    <groupId>com.adacta.keycloak</groupId>
+    <artifactId>scim2-provisioning</artifactId>
+    <version>1.16</version>
     <packaging>jar</packaging>
     <description>Keycloak SCIM2 Outbound User Provisioning</description>
 
     <properties>
-        <java.version>1.8</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        
+        <java.version>17</java.version>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
 
-        <guava.version>29.0-jre</guava.version>
+        <keycloak.version>24.0.3</keycloak.version>
+
+        <guava.version>33.1.0-jre</guava.version>
         <commons.text.version>1.8</commons.text.version>
         <commons.lang.version>3.10</commons.lang.version>
         <commons.coll.version>4.4</commons.coll.version>
         <commons.io.version>2.7</commons.io.version>
 
-        <jackson.version>2.14.0-rc2</jackson.version>
-        <lombok.version>1.18.24</lombok.version>
+        <jackson.version>2.17.0</jackson.version>
+        <lombok.version>1.18.32</lombok.version>
         <okhttp.version>3.14.9</okhttp.version>
 
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
-
         <json-schema-validator.version>2.2.14</json-schema-validator.version>
-        <validation-api.version>2.0.1.Final</validation-api.version>
-        <bean.validator.version>6.1.6.Final</bean.validator.version>
-        <!-- <log4j.version>2.13.3</log4j.version> -->
+        <validation-api.version>3.0.2</validation-api.version>
+        <bean.validator.version>7.0.1.Final</bean.validator.version>
+        <log4j.version>2.23.1</log4j.version>
+        <jetbrains-annotations.version>24.1.0</jetbrains-annotations.version>
     </properties>
 
     <repositories>
@@ -60,8 +58,8 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
             <version>${validation-api.version}</version>
         </dependency>
 
@@ -80,12 +78,12 @@
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-api</artifactId>
-            <version>2.13.3</version>
+            <version>${log4j.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-core</artifactId>
-            <version>2.13.3</version>
+            <version>${log4j.version}</version>
         </dependency>
 
         <!-- EOC -->
@@ -148,62 +146,55 @@
         <dependency>
             <groupId>org.keycloak</groupId>
             <artifactId>keycloak-core</artifactId>
+            <version>${keycloak.version}</version>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>org.keycloak</groupId>
             <artifactId>keycloak-model-jpa</artifactId>
+            <version>${keycloak.version}</version>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>org.keycloak</groupId>
             <artifactId>keycloak-server-spi</artifactId>
+            <version>${keycloak.version}</version>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>org.keycloak</groupId>
             <artifactId>keycloak-services</artifactId>
+            <version>${keycloak.version}</version>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>org.keycloak</groupId>
             <artifactId>keycloak-server-spi-private</artifactId>
+            <version>${keycloak.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.keycloak</groupId>
+            <artifactId>keycloak-ldap-federation</artifactId>
+            <version>${keycloak.version}</version>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <version>23.0.0</version>
+            <version>${jetbrains-annotations.version}</version>
         </dependency>
-
-        <dependency>
-            <groupId>org.keycloak</groupId>
-            <artifactId>keycloak-ldap-federation</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <!-- <dependency>
-            <groupId>com.github.suvera.scim2-sdk</groupId>
-            <artifactId>scim2-sdk-schema</artifactId>
-            <version>8a73bc6</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.github.suvera.scim2-sdk</groupId>
-            <artifactId>scim2-sdk-client</artifactId>
-            <version>4094f3b</version>
-        </dependency> -->
 
     </dependencies>
 
     <build>
-
-        <finalName>suvera-keycloak-scim2-outbound-provisioning</finalName>
+        <finalName>${project.artifactId}-keycloak-${keycloak.version}</finalName>
 
         <pluginManagement>
             <plugins>
@@ -225,6 +216,11 @@
                     <descriptorRefs>
                         <descriptorRef>jar-with-dependencies</descriptorRef>
                     </descriptorRefs>
+                    <archive>
+                        <manifest>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                        </manifest>
+                    </archive>
                 </configuration>
                 <executions>
                     <execution>
@@ -237,22 +233,9 @@
                 </executions>
             </plugin>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-war-plugin</artifactId>
-                <configuration>
-                    <failOnMissingWebXml>false</failOnMissingWebXml>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.jboss.as.plugins</groupId>
-                <artifactId>jboss-as-maven-plugin</artifactId>
-                <configuration>
-                    <skip>false</skip>
-                </configuration>
-            </plugin>
-            <plugin>
                 <groupId>org.wildfly.plugins</groupId>
                 <artifactId>wildfly-maven-plugin</artifactId>
+                <version>5.0.0.Final</version>
                 <configuration>
                     <skip>false</skip>
                 </configuration>

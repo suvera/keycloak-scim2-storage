@@ -2,6 +2,7 @@ package dev.suvera.keycloak.scim2.storage.ldap;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import javax.naming.AuthenticationException;
 
@@ -84,6 +85,16 @@ public class LDAPEventMapper implements LDAPStorageMapper {
     @Override
     public SynchronizationResult syncDataFromKeycloakToFederationProvider(RealmModel realm) {
         return new SynchronizationResult();
+    }
+
+    @Override
+    public Set<String> mandatoryAttributeNames() {
+        throw new UnsupportedOperationException("Unimplemented method 'mandatoryAttributeNames'");
+    }
+
+    @Override
+    public Set<String> getUserAttributes() {
+        throw new UnsupportedOperationException("Unimplemented method 'getUserAttributes'");
     }
     
 }

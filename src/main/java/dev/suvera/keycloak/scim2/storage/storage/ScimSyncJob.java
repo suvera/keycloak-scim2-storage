@@ -3,7 +3,7 @@ package dev.suvera.keycloak.scim2.storage.storage;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.persistence.EntityManager;
+import jakarta.persistence.EntityManager;
 
 import org.jboss.logging.Logger;
 import org.keycloak.component.ComponentModel;
@@ -132,7 +132,7 @@ public class ScimSyncJob {
             SynchronizationResult result)
             throws ScimException {
         if (userModel == null) {
-            userModel = session.userLocalStorage().getUserById(realmModel, job.getUserId());
+            userModel = session.users().getUserById(realmModel, job.getUserId());
         }
 
         if (userModel == null) {
@@ -157,7 +157,7 @@ public class ScimSyncJob {
     private void createUser(RealmModel realmModel, ScimSyncJobQueue job, ComponentModel componentModel,
             UserModel userModel, SynchronizationResult result) throws ScimException {
         if (userModel == null) {
-            userModel = session.userLocalStorage().getUserById(realmModel, job.getUserId());
+            userModel = session.users().getUserById(realmModel, job.getUserId());
         }
 
         if (userModel == null) {
@@ -197,9 +197,9 @@ public class ScimSyncJob {
         scimClient.createOrUpdateUser(scimUserAdapter, result);
 
         if (result != null) {
-            List<GroupModel> userGroups = userModel.getGroupsStream().collect(Collectors.toUnmodifiableList());
+            List<GroupModel> userGroups = userModel.getGroupsStream().collect(Collectors.toList());
 
-            session.groupLocalStorage().getGroupsStream(realmModel).forEach(group -> {
+            session.groups().getGroupsStream(realmModel).forEach(group -> {
                 if (userGroups.stream().anyMatch(userGroup -> userGroup.getId().equals(group.getId()))) {
                     enquerer.enqueueGroupJoinJob(realmModel, componentModel, userModel, group);
                 } else {
@@ -234,7 +234,7 @@ public class ScimSyncJob {
             GroupModel groupModel, boolean updateOnly) throws ScimException {
 
         if (groupModel == null) {
-            groupModel = session.groupLocalStorage().getGroupById(realmModel, job.getGroupId());
+            groupModel = session.groups().getGroupById(realmModel, job.getGroupId());
         }
 
         if (groupModel == null) {
@@ -263,7 +263,7 @@ public class ScimSyncJob {
 
         username = username.trim();
 
-        UserModel userModel = session.userLocalStorage().getUserByUsername(realmModel, username);
+        UserModel userModel = session.users().getUserByUsername(realmModel, username);
 
         if (userModel == null) {
             return null;
@@ -330,7 +330,7 @@ public class ScimSyncJob {
             UserModel userModel, GroupModel groupModel, boolean join) throws ScimException {
 
         if (userModel == null) {
-            userModel = session.userLocalStorage().getUserById(realmModel, job.getUserId());
+            userModel = session.users().getUserById(realmModel, job.getUserId());
         }
 
         if (userModel == null) {
@@ -348,7 +348,7 @@ public class ScimSyncJob {
         }
 
         if (groupModel == null) {
-            groupModel = session.groupLocalStorage().getGroupById(realmModel, job.getGroupId());
+            groupModel = session.groups().getGroupById(realmModel, job.getGroupId());
         }
 
         if (groupModel == null) {

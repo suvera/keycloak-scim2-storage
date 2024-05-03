@@ -73,11 +73,6 @@ public class SkssStorageProviderFactory implements UserStorageProviderFactory<Sk
                 .helpText("Client secret to access the scim resources")
                 .add()
 
-                .property()
-                .label("Version: " + SkssStorageProviderFactory.class.getPackage().getImplementationVersion() + "-15")
-                .helpText("Plugin version")
-                .add()
-
                 .build();
     }
 

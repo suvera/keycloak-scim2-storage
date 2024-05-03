@@ -5,8 +5,8 @@ import dev.suvera.scim2.schema.data.Attribute;
 import dev.suvera.scim2.schema.data.BaseRecord;
 import lombok.Data;
 
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import java.util.LinkedHashSet;
 import java.util.Set;
 

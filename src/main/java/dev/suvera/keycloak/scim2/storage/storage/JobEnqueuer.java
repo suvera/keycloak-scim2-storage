@@ -1,6 +1,6 @@
 package dev.suvera.keycloak.scim2.storage.storage;
 
-import javax.persistence.EntityManager;
+import jakarta.persistence.EntityManager;
 
 import org.jboss.logging.Logger;
 import org.keycloak.component.ComponentModel;
@@ -69,7 +69,7 @@ public class JobEnqueuer {
     public void enqueueUserCreateJob(String realmId, String username) {
         session.getContext().setRealm(session.realms().getRealm(realmId));
         RealmModel realmModel = session.realms().getRealm(realmId);
-        UserModel userModel = session.userLocalStorage().getUserByUsername(realmModel, username);
+        UserModel userModel = session.users().getUserByUsername(realmModel, username);
 
         if (userModel != null) {
             ComponentModel componentModel = realmModel.getComponent(userModel.getFederationLink());

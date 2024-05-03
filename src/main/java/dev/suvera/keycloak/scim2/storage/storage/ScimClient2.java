@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import javax.mail.Session;
+import jakarta.mail.Session;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jboss.logging.Logger;
@@ -43,7 +43,6 @@ import dev.suvera.scim2.schema.data.user.UserRecord.UserName;
 import dev.suvera.scim2.schema.data.user.UserRecord.UserPhoneNumber;
 import dev.suvera.scim2.schema.enums.PatchOp;
 import dev.suvera.scim2.schema.ex.ScimException;
-import liquibase.pro.packaged.nu;
 
 /**
  * author: suvera
@@ -199,16 +198,15 @@ public class ScimClient2 {
             groups.add(grp);
         });
 
-        List<UserRecord.UserRole> roles = new ArrayList<>();
-        for (RoleModel roleModel : userModel.getRoleMappings()) {
+        List<UserRecord.UserRole> roles = userModel.getRoleMappingsStream().map(roleModel -> {
             UserRecord.UserRole role = new UserRecord.UserRole();
             role.setDisplay(roleModel.getName());
             role.setValue(roleModel.getId());
             role.setType("direct");
             role.setPrimary(false);
-
-            roles.add(role);
-        }
+        
+            return role;
+        }).collect(Collectors.toList());
         user.setRoles(roles);
 
         if (isAttributeNotNull(userModel, "title")) {

@@ -37,8 +37,9 @@ public class GroupMigrationHandler {
 
             // find local group
             String groupName = representationJson.get("name").asText();
-            GroupModel groupModel = session.groupLocalStorage()
-                    .searchForGroupByNameStream(realmModel, groupName, null, null)
+            GroupModel groupModel = session
+                    .groups()
+                    .searchForGroupByNameStream(realmModel, groupName, true, null, null)
                     .findFirst()
                     .orElse(null);
 

@@ -9,7 +9,7 @@ import dev.suvera.scim2.schema.data.schema.Schema;
 import dev.suvera.scim2.schema.data.schema.SchemaExtension;
 import lombok.Data;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 import java.util.HashSet;
 import java.util.Set;
 
