@@ -1,8 +1,5 @@
 package dev.suvera.keycloak.scim2.storage.storage;
 
-import dev.suvera.scim2.schema.ex.ScimException;
-
-import org.jboss.logging.Logger;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.component.ComponentValidationException;
 import org.keycloak.models.KeycloakSession;
@@ -23,7 +20,6 @@ import java.util.List;
  * date: 10/15/2020 8:54 AM
  */
 public class SkssStorageProviderFactory implements UserStorageProviderFactory<SkssStorageProvider>, ImportSynchronization {
-    private static final Logger log = Logger.getLogger(SkssStorageProviderFactory.class);
     protected static final List<ProviderConfigProperty> configMetadata;
 
     public static final String PROVIDER_ID = "skss-scim2-storage";
@@ -33,16 +29,15 @@ public class SkssStorageProviderFactory implements UserStorageProviderFactory<Sk
                 .property()
                 .name("endPoint")
                 .type(ProviderConfigProperty.STRING_TYPE)
-                .label("SCIM 2.0 endPoint")
-                .helpText("External SCIM 2.0 base " +
-                        "URL (/ServiceProviderConfig  /Schemas and /ResourcesTypes should be accessible)")
+                .label("SCIM 2.0 url")
+                .helpText("External SCIM 2.0 base URL")
                 .add()
 
                 .property()
                 .name("authorityUrl")
                 .type(ProviderConfigProperty.STRING_TYPE)
                 .label("Authority url")
-                .helpText("Username to access the scim resources")
+                .helpText("URL to the authority that protects SCIM server")
                 .add()
 
                 .property()
@@ -87,17 +82,13 @@ public class SkssStorageProviderFactory implements UserStorageProviderFactory<Sk
     public void validateConfiguration(KeycloakSession session, RealmModel realm, ComponentModel config)
             throws ComponentValidationException {
         if (config.get("endPoint") == null || config.get("endPoint").isEmpty()) {
-            throw new ComponentValidationException("SCIM 2.0 endPoint is required.", "endPoint");
+            throw new ComponentValidationException("SCIM 2.0 endpoint is required.", "endPoint");
         }
         if (config.get("authorityUrl") == null || config.get("authorityUrl").isEmpty()) {
-            throw new ComponentValidationException("Authority URL is required.", "endPoint");
+            throw new ComponentValidationException("Authority URL is required.", "authorityUrl");
         }
-
-        ScimClient2 scimClient = new ScimClient2(config);
-        try {
-            scimClient.validate();
-        } catch (ScimException e) {
-            throw new ComponentValidationException(e.getMessage(), e);
+        if (config.get("clientId") == null || config.get("clientId").isEmpty()) {
+            throw new ComponentValidationException("Client ID is required.", "clientId");
         }
     }
 

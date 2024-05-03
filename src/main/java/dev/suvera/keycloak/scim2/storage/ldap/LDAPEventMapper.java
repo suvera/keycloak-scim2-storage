@@ -61,7 +61,7 @@ public class LDAPEventMapper implements LDAPStorageMapper {
         log.infof("Import user from LDAP event user is %s, is created %s", user.getUsername(), isCreate);
 
         JobEnqueuer job = JobEnqueuerFactory.create(session);
-        job.enqueueExternalUserCreateJob(realm, user.getId());
+        job.enqueueExternalUserCreateJob(realm.getId(), user.getId());
     }
 
     @Override
@@ -69,7 +69,7 @@ public class LDAPEventMapper implements LDAPStorageMapper {
         log.infof("Register user to LDAP event user is %s", localUser.getUsername());
 
         JobEnqueuer job = JobEnqueuerFactory.create(session);
-        job.enqueueExternalUserCreateJob(realm, localUser);
+        job.enqueueExternalUserCreateJob(realm.getId(), localUser.getId());
     }
 
     @Override

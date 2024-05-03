@@ -16,13 +16,28 @@ import java.util.Date;
  * date: 10/15/2020 8:08 PM
  */
 @NamedQueries({
-    @NamedQuery(name="getPendingJobs", query="select u from ScimSyncJobQueue u where u.processed between 0 and 2 order by u.createdOn asc")
+    @NamedQuery(name="getPendingJobs", query="select u from ScimSyncJobQueue u where u.processed between 0 and 2 order by u.createdOn asc"),
+    @NamedQuery(name="getJobByIdAndAction", query="select u from ScimSyncJobQueue u where (u.userId = :userId or u.groupId = :groupId) and u.action = :action")
 })
 @Data
 @ToString
 @Entity
 @Table(name = "SCIM_SYNC_JOB_QUEUE")
 public class ScimSyncJobQueue {
+    public ScimSyncJobQueue() { }
+
+    public ScimSyncJobQueue(ScimSyncJobQueue other) {
+        this.id = other.id;
+        this.userId = other.userId;
+        this.groupId = other.groupId;
+        this.action = other.action;
+        this.realmId = other.realmId;
+        this.componentId = other.componentId;
+        this.processed = other.processed;
+        this.createdOn = other.createdOn != null ? new Date(other.createdOn.getTime()) : null;
+        this.externalId = other.externalId;
+    }
+
     @Id
     @Column(name = "ID")
     private String id;

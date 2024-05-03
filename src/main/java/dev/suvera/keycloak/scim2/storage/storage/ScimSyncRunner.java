@@ -66,7 +66,7 @@ public class ScimSyncRunner {
                 job.setComponentId(model.getId());
                 job.setUserId(user.getId());
 
-                sync.execute(job, realm, model, user, result);
+                sync.execute(job, result);
             });
         });
 
@@ -84,19 +84,20 @@ public class ScimSyncRunner {
     private void callSyncJobs(KeycloakSession session, SynchronizationResult result) {
         EntityManager em = session.getProvider(JpaConnectionProvider.class).getEntityManager();
 
-        Stream<ScimSyncJobQueue> jobs = em.createNamedQuery("getPendingJobs", ScimSyncJobQueue.class)
+        try (Stream<ScimSyncJobQueue> jobs = em.createNamedQuery("getPendingJobs", ScimSyncJobQueue.class)
                 .setMaxResults(1000)
-                .getResultStream();
+                .getResultStream()) {
 
-        if (jobs == null) {
-            return;
-        }
+            if (jobs == null) {
+                return;
+            }
 
-        jobs.forEach(job -> {
-            KeycloakModelUtils.runJobInTransaction(sessionFactory, kcSession -> {
-                ScimSyncJob sync = new ScimSyncJob(kcSession);
-                sync.execute(job, result);
+            jobs.forEach(job -> {
+                KeycloakModelUtils.runJobInTransaction(sessionFactory, kcSession -> {
+                    ScimSyncJob sync = new ScimSyncJob(kcSession);
+                    sync.execute(job, result);
+                });
             });
-        });
+        }
     }
 }
