@@ -1,11 +1,6 @@
 package dev.suvera.keycloak.scim2.storage.storage;
 
-import jakarta.persistence.EntityManager;
-
 import org.jboss.logging.Logger;
-import org.keycloak.component.ComponentModel;
-import org.keycloak.connections.jpa.JpaConnectionProvider;
-import org.keycloak.models.GroupModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
@@ -17,126 +12,72 @@ import dev.suvera.keycloak.scim2.storage.jpa.ScimSyncJobQueue;
 public class JobEnqueuer {
     private static final Logger log = Logger.getLogger(JobEnqueuer.class);
     private KeycloakSession session;
-    private EntityManager em;
     private TimerProvider timer;
+    private ScimSyncJobQueueManager queueManager;
 
     public JobEnqueuer(KeycloakSession session) {
         this.session = session;
-        em = session.getProvider(JpaConnectionProvider.class).getEntityManager();
+        queueManager = ScimSyncJobQueueManagerFactory.create(session);
         timer = session.getProvider(TimerProvider.class);
     }
 
-    public void enqueueUserUpdateJob(String realmId, String userId) {
+    public void enqueueUserCreateJob(String realmId, String userId) {
         ScimSyncJobQueue entity = createJobQueue(realmId);
         entity.setAction(ScimSyncJob.CREATE_USER);
         entity.setUserId(userId);
 
         run(entity);
 
-        log.infof("User with id %s scheduled to be updated on SCIM", userId);
+        log.infof("User with id %s scheduled to be added or updated.", userId);
     }
 
-    public void enqueueUserCreateJob(RealmModel realmModel, UserModel userModel) {
-        ScimSyncJobQueue entity = createJobQueue(realmModel.getId());
-        entity.setAction(ScimSyncJob.CREATE_USER);
-        entity.setUserId(userModel.getId());
-
-        run(entity, realmModel, null, userModel);
-
-        log.infof("User with id %s scheduled to be added on SCIM", userModel.getId());
-    }
-
-    public void enqueueExternalUserCreateJob(RealmModel realmModel, UserModel userModel) {
-        ScimSyncJobQueue entity = createJobQueue(realmModel.getId());
-        entity.setAction(ScimSyncJob.CREATE_USER_EXTERNAL);
-        entity.setUserId(userModel.getId());
-
-        run(entity, realmModel, null, userModel);
-
-        log.infof("User with id %s scheduled to be added on SCIM", userModel.getId());
-    }
-
-    public void enqueueExternalUserCreateJob(RealmModel realmModel, String userId) {
-        ScimSyncJobQueue entity = createJobQueue(realmModel.getId());
+    public void enqueueExternalUserCreateJob(String realmId, String userId) {
+        ScimSyncJobQueue entity = createJobQueue(realmId);
         entity.setAction(ScimSyncJob.CREATE_USER_EXTERNAL);
         entity.setUserId(userId);
 
-        em.persist(entity);
+        queueManager.enqueueJobAndResetProcessed(entity);
 
-        log.infof("User with id %s scheduled to be added on SCIM", userId);
+        log.infof("External user with id %s scheduled to be added or updated.", userId);
     }
 
-    public void enqueueUserCreateJob(String realmId, String username) {
+    public void enqueueUserCreateJobByUsername(String realmId, String username) {
         session.getContext().setRealm(session.realms().getRealm(realmId));
         RealmModel realmModel = session.realms().getRealm(realmId);
         UserModel userModel = session.users().getUserByUsername(realmModel, username);
 
-        if (userModel != null) {
-            ComponentModel componentModel = realmModel.getComponent(userModel.getFederationLink());
-            enqueueUserCreateJob(realmModel, componentModel, userModel);
+        if (userModel == null) {
+            log.infof("Cannot find user with username %s", username);
+            return;
         }
-    }
 
-    public void enqueueUserCreateJob(RealmModel realmModel, ComponentModel componentModel, String userId) {
-        if (componentModel == null) {
-            log.infof("User with id %s is not bound to a federation plugin, will skip creation of the user update/create sync event.", userId);
-        } else {
-            ScimSyncJobQueue entity = createJobQueue(realmModel.getId());
-            entity.setAction(ScimSyncJob.CREATE_USER);
-            entity.setComponentId(componentModel.getId());
-            entity.setUserId(userId);
+        ScimSyncJobQueue entity = createJobQueue(realmModel.getId());
+        entity.setAction(ScimSyncJob.CREATE_USER);
+        entity.setComponentId(userModel.getFederationLink());
+        entity.setUserId(userModel.getId());
 
-            em.persist(entity);
-
-            timer.scheduleTask(session -> {
-                run(session, entity, realmModel, componentModel);
-                timer.cancelTask(userId);
-            }, 500, userId);
-
-            log.infof("User with id %s scheduled to be added on SCIM", userId);
-        }
-    }
-
-    public void enqueueUserCreateJob(RealmModel realmModel, ComponentModel componentModel, UserModel userModel) {
-        if (componentModel == null) {
-            log.infof("User with id %s is not bound to a federation plugin, will skip creation of the user update/create sync event.", userModel.getId());
-        } else {
-            ScimSyncJobQueue entity = createJobQueue(realmModel.getId());
-            entity.setAction(ScimSyncJob.CREATE_USER);
-            entity.setComponentId(componentModel.getId());
-            entity.setUserId(userModel.getId());
-
-            run(entity, realmModel, componentModel, userModel);
-
-            log.infof("User with id %s scheduled to be added on SCIM", userModel.getId());
-        }
+        run(entity);
+        log.infof("User with id %s and username %s scheduled to be added or updated.", userModel.getId(), username);
     }
 
     public void enqueueUserCreateJob(String realmId, String componentId, String userId) {
-        ScimSyncJobQueue entity = createJobQueue(realmId);
-        entity.setAction(ScimSyncJob.CREATE_USER);
-        entity.setComponentId(componentId);
-        entity.setUserId(userId);
+        ScimSyncJobQueue entity = createUserJobQueue(realmId, componentId, userId);
 
         run(entity);
 
-        log.infof("User with id %s scheduled to be added on SCIM", userId);
+        log.infof("User with id %s scheduled to be added.", userId);
     }
 
-    public void enqueueUserDeleteJob(RealmModel realmModel, ComponentModel componentModel, String userId, String externalId) {
-        if (componentModel == null) {
-            log.infof("User with id %s is not bound to a federation plugin, will skip creation of the user delete sync.", userId);
-        } else {
-            ScimSyncJobQueue entity = createJobQueue(realmModel.getId());
-            entity.setAction(ScimSyncJob.DELETE_USER);
-            entity.setComponentId(componentModel.getId());
-            entity.setUserId(userId);
-            entity.setExternalId(externalId);
+    public void enqueueUserDeleteJob(String realmId, String componentId, String userId, String externalId) {
+        ScimSyncJobQueue entity = createJobQueue(realmId);
+        entity.setAction(ScimSyncJob.DELETE_USER);
+        entity.setComponentId(componentId);
+        entity.setUserId(userId);
+        entity.setExternalId(externalId);
 
-            run(entity, realmModel, componentModel, null);
+        run(entity);
 
-            log.infof("User with id %s scheduled to be deleted on SCIM", userId);
-        }
+        log.infof("User with id %s scheduled to be deleted.", userId);
     }
 
     public void enqueueGroupCreateJob(String realmId, String groupId) {
@@ -146,17 +87,7 @@ public class JobEnqueuer {
 
         run(entity);
 
-        log.infof("Group with id %s scheduled to be added on SCIM", groupId);
-    }
-
-    public void enqueueGroupCreateJob(RealmModel realmModel, ComponentModel componentModel, GroupModel groupModel) {
-        ScimSyncJobQueue entity = createJobQueue(realmModel.getId());
-        entity.setAction(ScimSyncJob.CREATE_GROUP);
-        entity.setGroupId(groupModel.getId());
-
-        run(entity, realmModel, componentModel, null, groupModel);
-
-        log.infof("Group with id %s scheduled to be added on SCIM", groupModel.getId());
+        log.infof("Group with id %s scheduled to be added.", groupId);
     }
 
     public void enqueueGroupUpdateJob(String realmId, String groupId) {
@@ -166,7 +97,7 @@ public class JobEnqueuer {
 
         run(entity);
 
-        log.infof("Group with id %s scheduled to be added on SCIM", groupId);
+        log.infof("Group with id %s scheduled to be added.", groupId);
     }
 
     public void enqueueGroupDeleteJob(String realmId, String groupId) {
@@ -176,7 +107,7 @@ public class JobEnqueuer {
 
         run(entity);
 
-        log.infof("Group with id %s scheduled to be deleted on SCIM", groupId);
+        log.infof("Group with id %s scheduled to be deleted.", groupId);
     }
 
     public void enqueueGroupJoinJob(String realmId, String groupId, String userId) {
@@ -184,21 +115,9 @@ public class JobEnqueuer {
         entity.setAction(ScimSyncJob.JOIN_GROUP);
         entity.setGroupId(groupId);
         entity.setUserId(userId);
-
         run(entity);
 
-        log.infof("User with id %s scheduled to join group with id %s on SCIM", userId, groupId);
-    }
-
-    public void enqueueGroupJoinJob(RealmModel realmModel, ComponentModel componentModel, UserModel userModel, GroupModel groupModel) {
-        ScimSyncJobQueue entity = createJobQueue(realmModel.getId());
-        entity.setAction(ScimSyncJob.JOIN_GROUP);
-        entity.setGroupId(groupModel.getId());
-        entity.setUserId(userModel.getId());
-
-        run(entity, realmModel, componentModel, userModel, groupModel);
-
-        log.infof("User with id %s scheduled to join group with id %s on SCIM", userModel.getId(), groupModel.getId());
+        log.infof("User with id %s scheduled to join group with id %s.", userId, groupId);
     }
 
     public void enqueueGroupLeaveJob(String realmId, String groupId, String userId) {
@@ -209,18 +128,7 @@ public class JobEnqueuer {
 
         run(entity);
 
-        log.infof("User with id %s scheduled to leave group with id %s on SCIM", userId, groupId);
-    }
-
-    public void enqueueGroupLeaveJob(RealmModel realmModel, ComponentModel componentModel, UserModel userModel, GroupModel groupModel) {
-        ScimSyncJobQueue entity = createJobQueue(realmModel.getId());
-        entity.setAction(ScimSyncJob.LEAVE_GROUP);
-        entity.setGroupId(groupModel.getId());
-        entity.setUserId(userModel.getId());
-
-        run(entity, realmModel, componentModel, userModel, groupModel);
-
-        log.infof("User with id %s scheduled to join group with id %s on SCIM", userModel.getId(), groupModel.getId());
+        log.infof("User with id %s scheduled to leave group with id %s.", userId, groupId);
     }
 
     private ScimSyncJobQueue createJobQueue(String realmId) {
@@ -232,23 +140,29 @@ public class JobEnqueuer {
         return entity;
     }
 
+    private ScimSyncJobQueue createUserJobQueue(String realmId, String componentId, String userId) {
+        ScimSyncJobQueue entity = createJobQueue(realmId);
+        entity.setAction(ScimSyncJob.CREATE_USER);
+        entity.setComponentId(componentId);
+        entity.setUserId(userId);
+        
+        return entity;
+    }
+
     private void run(ScimSyncJobQueue job) {
-        ScimSyncJob sync = new ScimSyncJob(session);
-        sync.execute(job);
-    }
+        queueManager.enqueueJobAndResetProcessed(job);
+        String id = job.getUserId() != null ? job.getUserId() :
+                    job.getGroupId() != null ? job.getGroupId() :
+                    null;
 
-    private void run(ScimSyncJobQueue job, RealmModel realmModel, ComponentModel componentModel, UserModel userModel) {
-        ScimSyncJob sync = new ScimSyncJob(session);
-        sync.execute(job, realmModel, componentModel, userModel);
-    }
-
-    private void run(ScimSyncJobQueue job, RealmModel realmModel, ComponentModel componentModel, UserModel userModel, GroupModel groupModel) {
-        ScimSyncJob sync = new ScimSyncJob(session);
-        sync.execute(job, realmModel, componentModel, userModel, groupModel);
-    }
-
-    private void run(KeycloakSession session2, ScimSyncJobQueue job, RealmModel realmModel, ComponentModel componentModel) {
-        ScimSyncJob sync = new ScimSyncJob(session2);
-        sync.execute(job, realmModel, componentModel, null);
+        if (id == null) {
+            throw new IllegalArgumentException("Cannot run the job, neither userId or groupId is available.");
+        }
+        
+        timer.scheduleTask(s -> {
+            timer.cancelTask(id);
+            ScimSyncJob sync = new ScimSyncJob(s);
+            sync.execute(new ScimSyncJobQueue(job));
+        }, 500, id);
     }
 }

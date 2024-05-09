@@ -78,7 +78,7 @@ public class IdentityProviderEventMapper implements IdentityProviderMapper {
             IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
         log.debugf("Updating user with legacy: %s", user.getUsername());
         JobEnqueuer job = JobEnqueuerFactory.create(session);
-        job.enqueueUserCreateJob(realm, user);
+        job.enqueueUserCreateJob(realm.getId(), user.getId());
     }
 
     @Override
@@ -86,7 +86,7 @@ public class IdentityProviderEventMapper implements IdentityProviderMapper {
             IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
         log.debugf("Updating user: %s", user.getUsername());
         JobEnqueuer job = JobEnqueuerFactory.create(session);
-        job.enqueueUserCreateJob(realm, user);
+        job.enqueueUserCreateJob(realm.getId(), user.getId());
     }
     
 }

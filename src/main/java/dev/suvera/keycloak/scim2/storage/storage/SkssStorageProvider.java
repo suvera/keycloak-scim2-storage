@@ -55,7 +55,7 @@ public class SkssStorageProvider implements UserStorageProvider, UserRegistratio
     public UserModel addUser(RealmModel realmModel, String username) {
         UserModel localUser = createAdapter(realmModel, username);
 
-        jobQueue.enqueueUserCreateJob(realmModel, model, localUser.getId());
+        jobQueue.enqueueUserCreateJob(realmModel.getId(), model.getId(), localUser.getId());
 
         return localUser;
     }
@@ -81,8 +81,8 @@ public class SkssStorageProvider implements UserStorageProvider, UserRegistratio
         ScimUserAdapter scimUser = new ScimUserAdapter(session, realmModel, model, userModel);
         if (scimUser.getExternalId() != null) {
             jobQueue.enqueueUserDeleteJob(
-                realmModel,
-                model,
+                realmModel.getId(),
+                model.getId(),
                 userModel.getId(),
                 scimUser.getExternalId());
             scimUser.removeExternalId();

@@ -18,12 +18,10 @@ import dev.suvera.keycloak.scim2.storage.storage.JobEnqueuer;
 public class ScimEventListener implements EventListenerProvider {
     private static final Logger log = Logger.getLogger(ScimEventListener.class);
     private static final ObjectMapper objectMapper = new ObjectMapper();
-    private KeycloakSession session;
     private JobEnqueuer jobQueue;
     private GroupMigrationHandler groupMigrationHandler;
 
     public ScimEventListener(KeycloakSession session, JobEnqueuer jobQueue) {
-        this.session = session;
         this.jobQueue = jobQueue;
         this.groupMigrationHandler = new GroupMigrationHandler(session);
     }
@@ -37,7 +35,7 @@ public class ScimEventListener implements EventListenerProvider {
         if (event.getType() == EventType.UPDATE_PROFILE) {
             log.infof("Handling event: %s", event.getType());
 
-            jobQueue.enqueueUserUpdateJob(event.getRealmId(), event.getUserId());
+            jobQueue.enqueueUserCreateJob(event.getRealmId(), event.getUserId());
         }
     }
 
@@ -75,7 +73,7 @@ public class ScimEventListener implements EventListenerProvider {
 
                 if (userId != null) {
                     if (operationType == OperationType.CREATE && usernameNode != null) {
-                        jobQueue.enqueueUserCreateJob(event.getRealmId(), usernameNode.asText());
+                        jobQueue.enqueueUserCreateJobByUsername(event.getRealmId(), usernameNode.asText());
                     } else if (operationType == OperationType.UPDATE && federationLinkNode != null) {
                         jobQueue.enqueueUserCreateJob(event.getRealmId(), federationLinkNode.asText(), userId);
                     }
