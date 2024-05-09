@@ -16,6 +16,7 @@ import com.google.common.cache.LoadingCache;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+
 import java.io.IOException;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
@@ -87,18 +88,18 @@ public class Scim2ClientBuilder {
 
                         Builder builder = new FormBody.Builder();
                         
-                        if (username != null && password != null) {
-                            builder.add("grant_type", "password")
-                            .add("username", username)
-                            .add("password", password);
+                        if (username != null && password != null && clientId != null) {
+                            builder
+                                .add("username", username)
+                                .add("password", password)
+                                .add("client_id", clientId)
+                                .add("grant_type", "password");
                         }
-                        else {
-                            builder.add("grant_type", "client_credentials");
-                        }
-                        
-                        if (clientId != null && clientSecret != null) {
-                            builder.add("client_id", clientId)
-                            .add("client_secret", clientSecret);
+                        else if (clientId != null && clientSecret != null) {
+                            builder
+                                .add("grant_type", "client_credentials")
+                                .add("client_id", clientId)
+                                .add("client_secret", clientSecret);
                         }
                         
                         RequestBody body = builder.build();
@@ -107,7 +108,7 @@ public class Scim2ClientBuilder {
                         .url(StringUtils.strip(authorityUrl, "/") + "/protocol/openid-connect/token")
                         .post(body)
                         .build();
-    
+                        
                         Response tokenResponse = client.newCall(tokenRequest).execute();
                         if (!tokenResponse.isSuccessful()) {
                             return null;

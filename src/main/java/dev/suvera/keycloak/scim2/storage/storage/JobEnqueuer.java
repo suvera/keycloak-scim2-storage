@@ -160,9 +160,9 @@ public class JobEnqueuer {
         }
         
         timer.scheduleTask(s -> {
+            timer.cancelTask(id);
             ScimSyncJob sync = new ScimSyncJob(s);
             sync.execute(new ScimSyncJobQueue(job));
-            timer.cancelTask(id);
         }, 500, id);
     }
 }
