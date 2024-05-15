@@ -1,0 +1,26 @@
+{
+    "bulk": {
+      "maxOperations": 0,
+      "maxPayloadSize": 0,
+      "supported": false
+    },
+    "documentationUri": "https://docs.test.com",
+    "etag": {
+      "supported": true
+    },
+    "filter": {
+      "supported": true
+    },
+    "changePassword": {
+      "supported": false
+    },
+    "patch": {
+      "supported": true
+    },
+    "sort": {
+      "supported": false
+    },
+    "schemas": [
+      "urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig"
+    ]
+  }

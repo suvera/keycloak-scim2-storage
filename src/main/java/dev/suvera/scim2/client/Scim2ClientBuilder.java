@@ -87,19 +87,22 @@ public class Scim2ClientBuilder {
                         OkHttpClient client = new OkHttpClient();
 
                         Builder builder = new FormBody.Builder();
-                        
-                        if (username != null && password != null && clientId != null) {
-                            builder
-                                .add("username", username)
-                                .add("password", password)
-                                .add("client_id", clientId)
-                                .add("grant_type", "password");
-                        }
-                        else if (clientId != null && clientSecret != null) {
-                            builder
-                                .add("grant_type", "client_credentials")
-                                .add("client_id", clientId)
-                                .add("client_secret", clientSecret);
+
+                        if (clientId != null) {
+                            builder.add("client_id", clientId);
+
+                            if (clientSecret != null) {
+                                builder.add("client_secret", clientSecret);
+                            }
+
+                            if (username != null && password != null) {
+                                builder
+                                    .add("username", username)
+                                    .add("password", password)
+                                    .add("grant_type", "password");
+                            } else {
+                                builder.add("grant_type", "client_credentials");
+                            }
                         }
                         
                         RequestBody body = builder.build();

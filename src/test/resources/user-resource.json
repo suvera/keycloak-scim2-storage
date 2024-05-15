@@ -1,0 +1,9 @@
+{
+    "active": true,
+    "userName": "federated-user",
+    "externalId": "user-external-id",
+    "id": "id-federated-user",
+    "schemas": [
+      "urn:ietf:params:scim:schemas:core:2.0:User"
+    ]
+}

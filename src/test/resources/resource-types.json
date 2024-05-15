@@ -1,0 +1,37 @@
+{
+    "schemas": [
+      "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+    ],
+    "totalResults": 4,
+    "itemsPerPage": 4,
+    "startIndex": 1,
+    "Resources": [
+      {
+        "endpoint": "/Users",
+        "name": "User",
+        "schema": "urn:ietf:params:scim:schemas:core:2.0:User",
+        "id": "User",
+        "schemas": [
+          "urn:ietf:params:scim:schemas:core:2.0:ResourceType"
+        ]
+      },
+      {
+        "endpoint": "/Users",
+        "name": "User",
+        "schema": "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User",
+        "id": "User",
+        "schemas": [
+          "urn:ietf:params:scim:schemas:core:2.0:ResourceType"
+        ]
+      },
+      {
+        "endpoint": "/Groups",
+        "name": "Group",
+        "schema": "urn:ietf:params:scim:schemas:core:2.0:Group",
+        "id": "Group",
+        "schemas": [
+          "urn:ietf:params:scim:schemas:core:2.0:ResourceType"
+        ]
+      }
+    ]
+  }

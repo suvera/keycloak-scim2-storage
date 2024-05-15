@@ -1,0 +1,19 @@
+{
+  "schemas": [
+    "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+  ],
+  "totalResults": 1,
+  "itemsPerPage": 1,
+  "startIndex": 1,
+  "Resources": [
+    {
+      "active": true,
+      "userName": "federated-user",
+      "externalId": "user-external-id",
+      "id": "id-federated-user",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ]
+    }
+  ]
+}
