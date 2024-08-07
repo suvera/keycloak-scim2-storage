@@ -33,6 +33,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import dev.suvera.helpers.FluentTestsHelperWithUserUpdate;
 import dev.suvera.keycloak.scim2.storage.storage.SkssStorageProviderFactory;
 import jakarta.ws.rs.core.Response;
 
@@ -55,7 +56,7 @@ public class UserSyncTests {
     public static final String PLUGIN_NAME = "scim2-provisioning-keycloak-%s-jar-with-dependencies.jar".formatted(KEYCLOAK_VERSION);
     public static final int MOCK_SERVER_PORT = 8081;
 
-    private static FluentTestsHelper testsHelper;
+    private static FluentTestsHelperWithUserUpdate testsHelper;
     private static ClientAndServer mockServer;
     
     @ClassRule
@@ -68,7 +69,7 @@ public class UserSyncTests {
 
     @BeforeClass
     public static void beforeTestClass() throws IOException {
-        testsHelper = new FluentTestsHelper("http://%s:%s".formatted(keycloak.getHost(), keycloak.getMappedPort(KEYCLOAK_PORT)),
+        testsHelper = new FluentTestsHelperWithUserUpdate("http://%s:%s".formatted(keycloak.getHost(), keycloak.getMappedPort(KEYCLOAK_PORT)),
                 "admin", "admin",
                 FluentTestsHelper.DEFAULT_ADMIN_REALM,
                 FluentTestsHelper.DEFAULT_ADMIN_CLIENT,
@@ -105,6 +106,22 @@ public class UserSyncTests {
         testsHelper.createTestUser(username, "test-password");
 
         verifyUserCreate(mockServer, username, VerificationTimes.once());
+    }
+
+    @Test
+    public void updateUser() throws ClientRegistrationException, InterruptedException, IOException {
+        mockServer.stop();
+        ClientAndServer mockServerUserExists = initMockServer(true);
+
+        addProvider();
+        String username = "federated-user";
+        String email = "federated@email.com";
+        testsHelper.createTestUser(username, "passa");
+
+        testsHelper.updateUserEmail(username, email);
+
+        verifyUserEmailPatch(mockServerUserExists, "id-" + username, email, VerificationTimes.once());
+        mockServerUserExists.stop();
     }
 
     @Test
@@ -341,9 +358,26 @@ public class UserSyncTests {
         );
     }
 
+    private void verifyUserEmailPatch(ClientAndServer mockServer, String userId, String email, VerificationTimes times) throws InterruptedException {
+        // wait for the request to finish
+        Thread.sleep(4000);
+        mockServer.verify(
+            request()
+            .withMethod("PATCH")
+            .withPath("/Users/%s".formatted(userId))
+            .withBody(
+                JsonBody.json(
+                    "{ \"Operations\": [ { \"op\": \"add\", \"path\": \"emails[type eq work].value\", \"value\": \"%s\" } ] }".formatted(email),
+                    MatchType.ONLY_MATCHING_FIELDS
+                )
+            ),
+            times
+        );
+    }
+
     private void verifyUserPatch(ClientAndServer mockServer, String userId, VerificationTimes times) throws InterruptedException {
         // wait for the request to finish
-        Thread.sleep(2000);
+        Thread.sleep(4000);
         mockServer.verify(
             request()
             .withMethod("PATCH")
