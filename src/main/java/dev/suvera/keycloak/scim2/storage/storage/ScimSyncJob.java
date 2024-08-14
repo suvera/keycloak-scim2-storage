@@ -61,13 +61,13 @@ public class ScimSyncJob {
             queueManager.dequeueJob(job);
         } catch (ScimException e) {
             queueManager.increaseRetry(job);
-            log.error(e.getMessage());
+            log.error(e.getMessage(), e);
             if (result != null) {
                 result.increaseFailed();
             }
         } catch (SyncException e) {
             queueManager.dequeueJob(job);
-            log.info(e.getMessage());
+            log.info(e.getMessage(), e);
         }
     }
 

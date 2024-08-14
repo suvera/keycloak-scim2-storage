@@ -89,12 +89,12 @@ public class LDAPEventMapper implements LDAPStorageMapper {
 
     @Override
     public Set<String> mandatoryAttributeNames() {
-        throw new UnsupportedOperationException("Unimplemented method 'mandatoryAttributeNames'");
+        return Collections.emptySet();
     }
 
     @Override
     public Set<String> getUserAttributes() {
-        throw new UnsupportedOperationException("Unimplemented method 'getUserAttributes'");
+        return Collections.emptySet();
     }
     
 }

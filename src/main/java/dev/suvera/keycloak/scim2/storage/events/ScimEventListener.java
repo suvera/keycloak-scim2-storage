@@ -134,7 +134,7 @@ public class ScimEventListener implements EventListenerProvider {
         try {
             groupMigrationHandler.handleGroup(event.getRealmId(), groupJsonString);
         } catch (Exception e) {
-            log.errorf(e, "Error while handling migration of the group [%s]: %s", groupJsonString, e.getMessage());
+            log.errorf(e, "Error while handling migration of the group [%s]: %s", groupJsonString, e);
         }
     }
 

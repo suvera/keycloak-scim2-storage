@@ -343,7 +343,7 @@ public class Scim2ClientImpl implements Scim2Client {
             try {
                 patchResponse.setResource(mapToObject(response.getBody(), request.getRecordType()));
             } catch (ScimException e) {
-                log.error("Patch request has no Resource received. {}", e.getMessage());
+                log.error("Patch request has no Resource received. {}", e);
             }
         }
 
