@@ -86,6 +86,7 @@ public class ScimClient2 {
             scimService = builder.build();
         } catch (ScimException e) {
             scimException = e;
+            log.error("Scim2ClientBuilder failed", e);
         }
     }
 
@@ -136,11 +137,11 @@ public class ScimClient2 {
         user.setActive(userModel.isEnabled());
 
         List<UserRecord.UserGroup> groups = new ArrayList<>();
-        for (GroupModel groupModel : userModel.getGroups()) {
+        userModel.getGroupsStream().forEach(groupModel -> {
             try {
                 createGroup(groupModel);
             } catch (ScimException e) {
-                log.error("", e);
+                log.error("Error while creating group", e);
             }
 
             UserRecord.UserGroup grp = new UserRecord.UserGroup();
@@ -149,7 +150,7 @@ public class ScimClient2 {
             grp.setType("direct");
 
             groups.add(grp);
-        }
+        });
         user.setGroups(groups);
 
         List<UserRecord.UserRole> roles = new ArrayList<>();
@@ -186,7 +187,7 @@ public class ScimClient2 {
                 );
                 addresses.add(addr);
             } catch (JsonProcessingException e) {
-                log.error("", e);
+                log.error("Error while adding user address", e);
             }
 
             user.setAddresses(addresses);
@@ -203,7 +204,7 @@ public class ScimClient2 {
                 );
                 phones.add(phone);
             } catch (JsonProcessingException e) {
-                log.error("", e);
+                log.error("Error while adding phones", e);
             }
 
             user.setPhoneNumbers(phones);
@@ -220,6 +221,7 @@ public class ScimClient2 {
             log.info("Scim User: " + new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(user));
         } catch (JsonProcessingException e) {
             e.printStackTrace();
+            log.error("JSON error while building SCIM user object", e);
         }
     }
 

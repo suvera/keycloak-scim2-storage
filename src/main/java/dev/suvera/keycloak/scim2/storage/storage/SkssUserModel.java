@@ -12,11 +12,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * author: suvera
  * date: 10/15/2020 11:22 AM
  */
+@SuppressWarnings({"LombokGetterMayBeUsed", "unused", "LombokSetterMayBeUsed"})
 public class SkssUserModel extends AbstractUserAdapterFederatedStorage {
     private String username;
     private UserModel localModel;
@@ -91,11 +93,9 @@ public class SkssUserModel extends AbstractUserAdapterFederatedStorage {
     public void setUserResource(UserRecord userResource) {
         this.userResource = userResource;
     }
-
-    @Override
+    
     public Set<RoleModel> getRoleMappings() {
-        @SuppressWarnings({"unchecked", "rawtypes"})
-        Set<RoleModel> set = new HashSet(this.getFederatedRoleMappings());
+        Set<RoleModel> set = this.getFederatedRoleMappingsStream().collect(Collectors.toSet());
 
 //        if (this.appendDefaultRolesToRoleMappings()) {
 //            set.addAll(DefaultRoles.getDefaultRoles(this.realm));

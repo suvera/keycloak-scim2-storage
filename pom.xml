@@ -6,38 +6,49 @@
     <parent>
         <artifactId>keycloak-parent</artifactId>
         <groupId>org.keycloak</groupId>
-        <version>11.0.2</version>
+        <version>25.0.6</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
     <groupId>dev.suvera.keycloak</groupId>
     <artifactId>scim2-storage</artifactId>
-    <version>11.0.2</version>
+    <version>25.0.6</version>
     <packaging>jar</packaging>
     <description>Keycloak SCIM2 Outbound User Provisioning</description>
 
     <properties>
-        <java.version>1.8</java.version>
+        <java.version>17</java.version>
 
-        <guava.version>29.0-jre</guava.version>
-        <commons.text.version>1.8</commons.text.version>
-        <commons.lang.version>3.10</commons.lang.version>
+        <guava.version>33.3.0-jre</guava.version>
+        <commons.text.version>1.12.0</commons.text.version>
+        <commons.lang.version>3.17.0</commons.lang.version>
         <commons.coll.version>4.4</commons.coll.version>
-        <commons.io.version>2.7</commons.io.version>
+        <commons.io.version>2.17.0</commons.io.version>
 
-        <jackson.version>2.11.2</jackson.version>
-        <lombok.version>1.18.12</lombok.version>
-        <okhttp.version>4.9.0</okhttp.version>
+        <jackson.version>2.17.2</jackson.version>
+        <lombok.version>1.18.34</lombok.version>
+        <okhttp.version>4.12.0</okhttp.version>
+
+        <scim2-sdk.version>1.0.1</scim2-sdk.version>
+        <jakarta-persistence.version>3.1.0</jakarta-persistence.version>
+        <log4j.version>2.24.0</log4j.version>
     </properties>
 
     <repositories>
         <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
+            <id>suvera-maven-repo</id>
+            <name>suvera Maven Repo</name>
+            <url>https://suvera.github.io/maven</url>
         </repository>
     </repositories>
 
     <dependencies>
+        <dependency>
+            <groupId>jakarta.persistence</groupId>
+            <artifactId>jakarta.persistence-api</artifactId>
+            <version>${jakarta-persistence.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -93,6 +104,7 @@
             <artifactId>keycloak-core</artifactId>
             <scope>provided</scope>
         </dependency>
+
         <dependency>
             <groupId>org.keycloak</groupId>
             <artifactId>keycloak-model-jpa</artifactId>
@@ -118,15 +130,15 @@
         </dependency>
 
         <dependency>
-            <groupId>com.github.suvera.scim2-sdk</groupId>
+            <groupId>dev.suvera.scim2</groupId>
             <artifactId>scim2-sdk-schema</artifactId>
-            <version>8a73bc6</version>
+            <version>${scim2-sdk.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>com.github.suvera.scim2-sdk</groupId>
+            <groupId>dev.suvera.scim2</groupId>
             <artifactId>scim2-sdk-client</artifactId>
-            <version>4094f3b</version>
+            <version>${scim2-sdk.version}</version>
         </dependency>
 
     </dependencies>
@@ -142,6 +154,22 @@
                     <artifactId>maven-deploy-plugin</artifactId>
                     <configuration>
                         <skip>true</skip>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.13.0</version>
+                    <configuration>
+                        <source>${maven.compiler.source}</source>
+                        <target>${maven.compiler.target}</target>
+                        <annotationProcessorPaths>
+                            <annotationProcessorPath>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>${lombok.version}</version>
+                            </annotationProcessorPath>
+                        </annotationProcessorPaths>
                     </configuration>
                 </plugin>
             </plugins>

@@ -10,6 +10,7 @@ import java.util.List;
  * date: 10/14/2020 12:32 PM
  */
 public class SkssEntityProvider implements JpaEntityProvider {
+    public static final String FACTORY_ID = "skss-entity-provider";
 
     public List<Class<?>> getEntities() {
         return Collections.singletonList(SkssJobQueue.class);
@@ -23,6 +24,6 @@ public class SkssEntityProvider implements JpaEntityProvider {
     }
 
     public String getFactoryId() {
-        return SkssJpaEntityProviderFactory.ID;
+        return FACTORY_ID;
     }
 }

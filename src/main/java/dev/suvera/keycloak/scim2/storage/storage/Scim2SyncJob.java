@@ -1,6 +1,8 @@
 package dev.suvera.keycloak.scim2.storage.storage;
 
 import dev.suvera.keycloak.scim2.storage.jpa.SkssJobQueue;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityTransaction;
 import org.jboss.logging.Logger;
 import org.keycloak.common.util.MultivaluedHashMap;
 import org.keycloak.component.ComponentModel;
@@ -12,8 +14,6 @@ import org.keycloak.models.jpa.UserAdapter;
 import org.keycloak.models.jpa.entities.*;
 import org.keycloak.models.utils.KeycloakModelUtils;
 
-import javax.persistence.EntityManager;
-import javax.persistence.EntityTransaction;
 import java.util.List;
 
 /**
@@ -22,18 +22,33 @@ import java.util.List;
  */
 public class Scim2SyncJob implements Runnable {
     private static final Logger log = Logger.getLogger(Scim2SyncJob.class);
-    private final EntityManager em;
+    private EntityManager em;
     private final KeycloakSession session;
 
     public Scim2SyncJob(KeycloakSession session) {
         this.session = session;
-        em = session.getProvider(JpaConnectionProvider.class).getEntityManager();
     }
 
     @Override
     public void run() {
 
         while (true) {
+            if (em == null) {
+                try {
+                    em = session.getProvider(JpaConnectionProvider.class).getEntityManager();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    log.error("Could not get EntityManager in Scim2SyncJob, retrying after few seconds ...", e);
+                    try {
+                        //noinspection BusyWait
+                        Thread.sleep(60000);
+                    } catch (InterruptedException ex) {
+                        log.error(e.getMessage(), e);
+                        break;
+                    }
+                    continue;
+                }
+            }
 
             try {
                 performSync();

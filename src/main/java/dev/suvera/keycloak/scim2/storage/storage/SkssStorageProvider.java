@@ -3,6 +3,7 @@ package dev.suvera.keycloak.scim2.storage.storage;
 import dev.suvera.keycloak.scim2.storage.jpa.SkssJobQueue;
 import dev.suvera.scim2.schema.data.user.UserRecord;
 import dev.suvera.scim2.schema.ex.ScimException;
+import jakarta.persistence.EntityManager;
 import org.jboss.logging.Logger;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.connections.jpa.JpaConnectionProvider;
@@ -12,13 +13,12 @@ import org.keycloak.credential.CredentialModel;
 import org.keycloak.models.*;
 import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.storage.ReadOnlyException;
+import org.keycloak.storage.UserStoragePrivateUtil;
 import org.keycloak.storage.UserStorageProvider;
 import org.keycloak.storage.user.UserLookupProvider;
 import org.keycloak.storage.user.UserRegistrationProvider;
 
-import javax.persistence.EntityManager;
-import java.util.Collections;
-import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * author: suvera
@@ -148,13 +148,19 @@ public class SkssStorageProvider implements UserStorageProvider,
     }
 
     @Override
-    public Set<String> getDisableableCredentialTypes(RealmModel realmModel, UserModel userModel) {
-        return Collections.emptySet();
+    public Stream<String> getDisableableCredentialTypesStream(RealmModel realmModel, UserModel userModel) {
+        return Stream.empty();
     }
 
     @Override
-    public UserModel getUserById(String id, RealmModel realm) {
-        UserModel localModel = keycloakSession.userLocalStorage().getUserById(id, realm);
+    public CredentialValidationOutput getUserByCredential(RealmModel realm, CredentialInput input) {
+        return UserLookupProvider.super.getUserByCredential(realm, input);
+    }
+
+    @Override
+    public UserModel getUserById(RealmModel realm, String id) {
+        UserProvider userStorage = UserStoragePrivateUtil.userLocalStorage(keycloakSession);
+        UserModel localModel = userStorage.getUserById(realm, id);
         if (localModel == null) {
             return null;
         }
@@ -188,9 +194,9 @@ public class SkssStorageProvider implements UserStorageProvider,
     }
 
     @Override
-    public UserModel getUserByUsername(String username, RealmModel realm) {
-        UserModel localModel = keycloakSession.userLocalStorage().getUserByUsername(username, realm);
-
+    public UserModel getUserByUsername(RealmModel realm, String username) {
+        UserProvider userStorage = UserStoragePrivateUtil.userLocalStorage(keycloakSession);
+        UserModel localModel = userStorage.getUserByUsername(realm, username);
         if (localModel == null) {
             return null;
         }
@@ -199,8 +205,9 @@ public class SkssStorageProvider implements UserStorageProvider,
     }
 
     @Override
-    public UserModel getUserByEmail(String email, RealmModel realm) {
-        UserModel localModel = keycloakSession.userLocalStorage().getUserByEmail(email, realm);
+    public UserModel getUserByEmail(RealmModel realm, String email) {
+        UserProvider userStorage = UserStoragePrivateUtil.userLocalStorage(keycloakSession);
+        UserModel localModel = userStorage.getUserByEmail(realm, email);
         if (localModel == null) {
             return null;
         }

@@ -3,10 +3,7 @@ package dev.suvera.keycloak.scim2.storage.jpa;
 import lombok.Data;
 import lombok.ToString;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import jakarta.persistence.*;
 import java.util.Date;
 
 /**
