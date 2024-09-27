@@ -29,7 +29,7 @@
         <lombok.version>1.18.34</lombok.version>
         <okhttp.version>4.12.0</okhttp.version>
 
-        <scim2-sdk.version>1.0.1</scim2-sdk.version>
+        <scim2-sdk.version>1.0.2</scim2-sdk.version>
         <jakarta-persistence.version>3.1.0</jakarta-persistence.version>
         <log4j.version>2.24.0</log4j.version>
     </properties>
